@@ -1,181 +1,214 @@
 // ================================
-// ADVANCED CHAT FRONTEND (app.js)
+// ADVANCED CHAT SERVER (index.js)
 // ================================
 
-// Connect to socket.io server
-const socket = io();
+const express = require("express");
+const http = require("http");
+const path = require("path");
+const { Server } = require("socket.io");
+const geoip = require("geoip-lite"); // For basic IP location
 
-// DOM Elements
-const loginPanel = document.getElementById("loginPanel");
-const nameInput = document.getElementById("username");
-const joinBtn = document.getElementById("joinBtn");
+const app = express();
+const server = http.createServer(app);
 
-const chatBox = document.getElementById("chatBox");
-const messagesDiv = document.getElementById("messages");
-const msgInput = document.getElementById("msgInput");
-const sendBtn = document.getElementById("sendBtn");
-
-const usersListDiv = document.getElementById("users");
-const adminPanel = document.getElementById("adminPanel");
-
-// Track my role
-let myRole = "user";
-let myUsername = "";
-
-// ---------------------------
-// JOIN CHAT
-// ---------------------------
-joinBtn.onclick = () => {
-  const username = nameInput.value.trim();
-  if (!username) return alert("Enter a username");
-
-  myUsername = username;
-
-  // Demo roles
-  if (username.toLowerCase() === "owner") myRole = "owner";
-  else if (username.toLowerCase() === "admin") myRole = "admin";
-
-  socket.emit("joinRoom", { username, room: "main", role: myRole });
-
-  loginPanel.style.display = "none";
-  chatBox.style.display = "flex";
-
-  // Show admin panel for owner/admin
-  if (myRole === "owner" || myRole === "admin") {
-    adminPanel.style.display = "block";
+const io = new Server(server, {
+  cors: {
+    origin: "*"
   }
-};
-
-// ---------------------------
-// SEND MESSAGE
-// ---------------------------
-sendBtn.onclick = () => {
-  const msg = msgInput.value.trim();
-  if (!msg) return;
-  socket.emit("sendMsg", msg);
-  msgInput.value = "";
-};
-
-// Send message on Enter key
-msgInput.addEventListener("keypress", (e) => {
-  if (e.key === "Enter") sendBtn.click();
 });
 
-// ---------------------------
-// RECEIVE PUBLIC MESSAGE
-// ---------------------------
-socket.on("chatMsg", (data) => {
-  const p = document.createElement("p");
-  p.style.color = data.color;
-  p.innerHTML = `<b>${data.user}:</b> ${data.text}`;
-  messagesDiv.appendChild(p);
-  messagesDiv.scrollTop = messagesDiv.scrollHeight;
-});
+// Serve public folder
+app.use(express.static(path.join(__dirname, "public")));
 
-// ---------------------------
-// RECEIVE USER LIST
-// ---------------------------
-socket.on("userList", (list) => {
-  usersListDiv.innerHTML = "<h3>Users</h3>";
-  list.forEach(u => {
-    usersListDiv.innerHTML += `<p>${u}</p>`;
+// ===============================
+// GLOBAL STORAGE
+// ===============================
+const users = {};     // socket.id => { username, role, room, ip }
+const rooms = {};     // room => [username]
+const muted = {};     // username => true
+const banned = {};    // username => true
+const deviceMap = {}; // ip => [username]
+
+// ===============================
+// SOCKET.IO CONNECTION
+// ===============================
+io.on("connection", (socket) => {
+
+  // -------- JOIN ROOM --------
+  socket.on("joinRoom", ({ username, room, role }) => {
+
+    // Check if banned
+    if (banned[username]) {
+      socket.emit("banned");
+      return;
+    }
+
+    socket.join(room);
+
+    // Store user info
+    const ip = socket.handshake.address;
+    const geo = geoip.lookup(ip) || {};
+    users[socket.id] = { username, role, room, ip, geo };
+
+    // Add to room
+    if (!rooms[room]) rooms[room] = [];
+    rooms[room].push(username);
+
+    // Track device/IP
+    if (!deviceMap[ip]) deviceMap[ip] = [];
+    deviceMap[ip].push(username);
+
+    // Notify room
+    io.to(room).emit("chatMsg", {
+      user: "System",
+      text: `${username} joined the room`,
+      color: "#f4ae3c"
+    });
+
+    // Update user list
+    io.to(room).emit("userList", rooms[room]);
   });
+
+  // -------- PUBLIC MESSAGE --------
+  socket.on("sendMsg", (msg) => {
+    const user = users[socket.id];
+    if (!user) return;
+
+    // Check mute
+    if (muted[user.username]) {
+      socket.emit("muted");
+      return;
+    }
+
+    io.to(user.room).emit("chatMsg", {
+      user: user.username,
+      text: msg,
+      color: user.role === "owner" ? "#00ffff" :
+             user.role === "admin" ? "#ff4d4d" :
+             "#ffffff"
+    });
+  });
+
+  // -------- PRIVATE DM --------
+  socket.on("dm", ({ toUsername, msg }) => {
+    const sender = users[socket.id];
+    if (!sender) return;
+
+    // Find socket id of target user
+    let targetId = null;
+    for (let id in users) {
+      if (users[id].username === toUsername) targetId = id;
+    }
+    if (!targetId) return;
+
+    // Send DM to target
+    io.to(targetId).emit("dmReceive", {
+      from: sender.username,
+      msg
+    });
+
+    // Optionally owner can view all DMs
+    for (let id in users) {
+      if (users[id].role === "owner") {
+        io.to(id).emit("ownerDMView", {
+          from: sender.username,
+          to: toUsername,
+          msg
+        });
+      }
+    }
+  });
+
+  // -------- KICK USER --------
+  socket.on("kickUser", (targetUser) => {
+    const admin = users[socket.id];
+    if (!admin || (admin.role !== "admin" && admin.role !== "owner")) return;
+
+    for (let id in users) {
+      if (users[id].username === targetUser) {
+        io.to(id).emit("kicked");
+        io.sockets.sockets.get(id)?.disconnect();
+
+        // Remove from room
+        const room = users[id].room;
+        rooms[room] = rooms[room].filter(u => u !== targetUser);
+
+        io.to(room).emit("userList", rooms[room]);
+        io.to(room).emit("chatMsg", {
+          user: "System",
+          text: `${targetUser} was kicked by ${admin.username}`,
+          color: "#ff4444"
+        });
+      }
+    }
+  });
+
+  // -------- MUTE USER --------
+  socket.on("muteUser", (targetUser) => {
+    const admin = users[socket.id];
+    if (!admin || (admin.role !== "admin" && admin.role !== "owner")) return;
+
+    muted[targetUser] = true;
+    io.emit("notification", `${targetUser} has been muted`);
+  });
+
+  // -------- BAN USER (OWNER ONLY) --------
+  socket.on("banUser", (targetUser) => {
+    const owner = users[socket.id];
+    if (!owner || owner.role !== "owner") return;
+
+    banned[targetUser] = true;
+    io.emit("notification", `${targetUser} has been banned`);
+  });
+
+  // -------- DELETE MESSAGE (Admin/Owner) --------
+  socket.on("deleteMsg", ({ room, msgId }) => {
+    const user = users[socket.id];
+    if (!user || (user.role !== "admin" && user.role !== "owner")) return;
+
+    io.to(room).emit("deleteMsg", msgId);
+  });
+
+  // -------- TYPING INDICATOR --------
+  socket.on("typing", (isTyping) => {
+    const user = users[socket.id];
+    if (!user) return;
+
+    socket.to(user.room).emit("typing", {
+      username: user.username,
+      isTyping
+    });
+  });
+
+  // -------- DISCONNECT --------
+  socket.on("disconnect", () => {
+    const user = users[socket.id];
+    if (!user) return;
+
+    const { username, room, ip } = user;
+
+    // Remove from room
+    if (rooms[room]) {
+      rooms[room] = rooms[room].filter(u => u !== username);
+      io.to(room).emit("userList", rooms[room]);
+    }
+
+    // Remove from device map
+    if (deviceMap[ip]) {
+      deviceMap[ip] = deviceMap[ip].filter(u => u !== username);
+    }
+
+    io.to(room).emit("chatMsg", {
+      user: "System",
+      text: `${username} left the room`,
+      color: "#f4ae3c"
+    });
+
+    delete users[socket.id];
+  });
+
 });
 
-// ---------------------------
-// PRIVATE DM
-// ---------------------------
-function sendDM() {
-  const target = prompt("Enter username for DM:");
-  const msg = prompt("Enter message:");
-  if (!target || !msg) return;
-
-  socket.emit("dm", { toUsername: target, msg });
-}
-
-socket.on("dmReceive", (data) => {
-  alert(`DM from ${data.from}: ${data.msg}`);
-});
-
-// Owner DM Viewer
-socket.on("ownerDMView", (data) => {
-  if (myRole === "owner") {
-    console.log(`Owner DM View: ${data.from} -> ${data.to}: ${data.msg}`);
-  }
-});
-
-// ---------------------------
-// ADMIN / OWNER COMMANDS
-// ---------------------------
-
-// KICK
-document.getElementById("kickBtn").onclick = () => {
-  const target = prompt("Enter username to kick:");
-  if (target) socket.emit("kickUser", target);
-};
-
-// MUTE
-document.getElementById("muteBtn").onclick = () => {
-  const target = prompt("Enter username to mute:");
-  if (target) socket.emit("muteUser", target);
-};
-
-// BAN (Owner only)
-document.getElementById("banBtn").onclick = () => {
-  const target = prompt("Enter username to ban:");
-  socket.emit("banUser", target);
-};
-
-// DELETE MESSAGE
-document.getElementById("deleteMsgBtn").onclick = () => {
-  const msgId = prompt("Enter message ID to delete:");
-  socket.emit("deleteMsg", { room: "main", msgId });
-};
-
-// ---------------------------
-// KICK / MUTE / BAN FEEDBACK
-// ---------------------------
-socket.on("kicked", () => {
-  alert("You were kicked by an admin.");
-  location.reload();
-});
-
-socket.on("muted", () => {
-  alert("You are muted by admin.");
-});
-
-socket.on("banned", () => {
-  alert("You are banned by owner.");
-});
-
-socket.on("notification", (msg) => {
-  const p = document.createElement("p");
-  p.style.color = "#ffcc00";
-  p.innerHTML = `<b>System:</b> ${msg}`;
-  messagesDiv.appendChild(p);
-  messagesDiv.scrollTop = messagesDiv.scrollHeight;
-});
-
-// ---------------------------
-// TYPING INDICATOR
-// ---------------------------
-msgInput.addEventListener("input", () => {
-  socket.emit("typing", msgInput.value.trim() !== "");
-});
-
-socket.on("typing", (data) => {
-  const typingDiv = document.getElementById("typing");
-  if (!data.isTyping) {
-    typingDiv.innerHTML = "";
-    return;
-  }
-  typingDiv.innerHTML = `${data.username} is typing...`;
-});
-
-// ---------------------------
-// DELETE MESSAGE RECEIVED
-// ---------------------------
-socket.on("deleteMsg", (msgId) => {
-  const msgElement = document.getElementById(msgId);
-  if (msgElement) msgElement.remove();
-});
+// -------- START SERVER --------
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
