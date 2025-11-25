@@ -1,18 +1,16 @@
 {
-  "name": "advanced-chat-room",
+  "name": "advanced-chatroom",
   "version": "1.0.0",
-  "description": "Advanced real-time chat room with owner/admin panel, private DM, kick/mute/ban, typing indicator, and multi-room support.",
+  "description": "Advanced chatroom with rooms, DM, owner monitoring, kick/mute",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js"
   },
-  "author": "YourName",
-  "license": "MIT",
   "dependencies": {
     "express": "^4.18.2",
     "socket.io": "^4.7.2",
-    "geoip-lite": "^1.4.2"
+    "cors": "^2.8.5"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"
