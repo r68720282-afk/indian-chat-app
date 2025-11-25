@@ -1,214 +1,137 @@
-// ================================
-// ADVANCED CHAT SERVER (index.js)
-// ================================
+const socket = io();
 
-const express = require("express");
-const http = require("http");
-const path = require("path");
-const { Server } = require("socket.io");
-const geoip = require("geoip-lite"); // For basic IP location
+// DOM
+const loginPanel = document.getElementById("loginPanel");
+const usernameInput = document.getElementById("username");
+const roleSelect = document.getElementById("role");
+const joinBtn = document.getElementById("joinBtn");
 
-const app = express();
-const server = http.createServer(app);
+const chatApp = document.getElementById("chatApp");
+const usersList = document.getElementById("usersList");
+const messagesDiv = document.getElementById("messages");
 
-const io = new Server(server, {
-  cors: {
-    origin: "*"
+const msgInput = document.getElementById("msgInput");
+const sendBtn = document.getElementById("sendBtn");
+
+const selectUser = document.getElementById("selectUser");
+const monitorBtn = document.getElementById("monitorBtn");
+const monitorOutput = document.getElementById("monitorOutput");
+
+const kickBtn = document.getElementById("kickBtn");
+const muteBtn = document.getElementById("muteBtn");
+
+const dmHistoryBtn = document.getElementById("dmHistoryBtn");
+const dmHistoryDiv = document.getElementById("dmHistory");
+
+let myUsername, myRole;
+
+joinBtn.onclick = () => {
+  myUsername = usernameInput.value.trim();
+  myRole = roleSelect.value;
+  if (!myUsername) {
+    alert("Enter username");
+    return;
   }
+
+  socket.emit("join_room", { username: myUsername, room: "General", role: myRole });
+
+  loginPanel.classList.add("hidden");
+  chatApp.classList.remove("hidden");
+
+  if (myRole === "owner") {
+    document.getElementById("ownerControls").classList.remove("hidden");
+  }
+};
+
+sendBtn.onclick = () => {
+  const msg = msgInput.value.trim();
+  if (!msg) return;
+  socket.emit("send_message", { message: msg });
+  msgInput.value = "";
+};
+
+socket.on("receive_message", (msgObj) => {
+  const p = document.createElement("p");
+  p.innerText = `${msgObj.username}: ${msgObj.message}`;
+  messagesDiv.appendChild(p);
+  messagesDiv.scrollTop = messagesDiv.scrollHeight;
 });
 
-// Serve public folder
-app.use(express.static(path.join(__dirname, "public")));
-
-// ===============================
-// GLOBAL STORAGE
-// ===============================
-const users = {};     // socket.id => { username, role, room, ip }
-const rooms = {};     // room => [username]
-const muted = {};     // username => true
-const banned = {};    // username => true
-const deviceMap = {}; // ip => [username]
-
-// ===============================
-// SOCKET.IO CONNECTION
-// ===============================
-io.on("connection", (socket) => {
-
-  // -------- JOIN ROOM --------
-  socket.on("joinRoom", ({ username, room, role }) => {
-
-    // Check if banned
-    if (banned[username]) {
-      socket.emit("banned");
-      return;
-    }
-
-    socket.join(room);
-
-    // Store user info
-    const ip = socket.handshake.address;
-    const geo = geoip.lookup(ip) || {};
-    users[socket.id] = { username, role, room, ip, geo };
-
-    // Add to room
-    if (!rooms[room]) rooms[room] = [];
-    rooms[room].push(username);
-
-    // Track device/IP
-    if (!deviceMap[ip]) deviceMap[ip] = [];
-    deviceMap[ip].push(username);
-
-    // Notify room
-    io.to(room).emit("chatMsg", {
-      user: "System",
-      text: `${username} joined the room`,
-      color: "#f4ae3c"
-    });
-
-    // Update user list
-    io.to(room).emit("userList", rooms[room]);
-  });
-
-  // -------- PUBLIC MESSAGE --------
-  socket.on("sendMsg", (msg) => {
-    const user = users[socket.id];
-    if (!user) return;
-
-    // Check mute
-    if (muted[user.username]) {
-      socket.emit("muted");
-      return;
-    }
-
-    io.to(user.room).emit("chatMsg", {
-      user: user.username,
-      text: msg,
-      color: user.role === "owner" ? "#00ffff" :
-             user.role === "admin" ? "#ff4d4d" :
-             "#ffffff"
-    });
-  });
-
-  // -------- PRIVATE DM --------
-  socket.on("dm", ({ toUsername, msg }) => {
-    const sender = users[socket.id];
-    if (!sender) return;
-
-    // Find socket id of target user
-    let targetId = null;
-    for (let id in users) {
-      if (users[id].username === toUsername) targetId = id;
-    }
-    if (!targetId) return;
-
-    // Send DM to target
-    io.to(targetId).emit("dmReceive", {
-      from: sender.username,
-      msg
-    });
-
-    // Optionally owner can view all DMs
-    for (let id in users) {
-      if (users[id].role === "owner") {
-        io.to(id).emit("ownerDMView", {
-          from: sender.username,
-          to: toUsername,
-          msg
-        });
-      }
-    }
-  });
-
-  // -------- KICK USER --------
-  socket.on("kickUser", (targetUser) => {
-    const admin = users[socket.id];
-    if (!admin || (admin.role !== "admin" && admin.role !== "owner")) return;
-
-    for (let id in users) {
-      if (users[id].username === targetUser) {
-        io.to(id).emit("kicked");
-        io.sockets.sockets.get(id)?.disconnect();
-
-        // Remove from room
-        const room = users[id].room;
-        rooms[room] = rooms[room].filter(u => u !== targetUser);
-
-        io.to(room).emit("userList", rooms[room]);
-        io.to(room).emit("chatMsg", {
-          user: "System",
-          text: `${targetUser} was kicked by ${admin.username}`,
-          color: "#ff4444"
-        });
-      }
-    }
-  });
-
-  // -------- MUTE USER --------
-  socket.on("muteUser", (targetUser) => {
-    const admin = users[socket.id];
-    if (!admin || (admin.role !== "admin" && admin.role !== "owner")) return;
-
-    muted[targetUser] = true;
-    io.emit("notification", `${targetUser} has been muted`);
-  });
-
-  // -------- BAN USER (OWNER ONLY) --------
-  socket.on("banUser", (targetUser) => {
-    const owner = users[socket.id];
-    if (!owner || owner.role !== "owner") return;
-
-    banned[targetUser] = true;
-    io.emit("notification", `${targetUser} has been banned`);
-  });
-
-  // -------- DELETE MESSAGE (Admin/Owner) --------
-  socket.on("deleteMsg", ({ room, msgId }) => {
-    const user = users[socket.id];
-    if (!user || (user.role !== "admin" && user.role !== "owner")) return;
-
-    io.to(room).emit("deleteMsg", msgId);
-  });
-
-  // -------- TYPING INDICATOR --------
-  socket.on("typing", (isTyping) => {
-    const user = users[socket.id];
-    if (!user) return;
-
-    socket.to(user.room).emit("typing", {
-      username: user.username,
-      isTyping
-    });
-  });
-
-  // -------- DISCONNECT --------
-  socket.on("disconnect", () => {
-    const user = users[socket.id];
-    if (!user) return;
-
-    const { username, room, ip } = user;
-
-    // Remove from room
-    if (rooms[room]) {
-      rooms[room] = rooms[room].filter(u => u !== username);
-      io.to(room).emit("userList", rooms[room]);
-    }
-
-    // Remove from device map
-    if (deviceMap[ip]) {
-      deviceMap[ip] = deviceMap[ip].filter(u => u !== username);
-    }
-
-    io.to(room).emit("chatMsg", {
-      user: "System",
-      text: `${username} left the room`,
-      color: "#f4ae3c"
-    });
-
-    delete users[socket.id];
-  });
-
+socket.on("system_message", (data) => {
+  const p = document.createElement("p");
+  p.style.fontStyle = "italic";
+  p.innerText = data.message;
+  messagesDiv.appendChild(p);
+  messagesDiv.scrollTop = messagesDiv.scrollHeight;
 });
 
-// -------- START SERVER --------
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+socket.on("room_history", (history) => {
+  history.forEach(msg => {
+    const p = document.createElement("p");
+    p.innerText = `${msg.username}: ${msg.message}`;
+    messagesDiv.appendChild(p);
+  });
+  messagesDiv.scrollTop = messagesDiv.scrollHeight;
+});
+
+socket.on("room_users", (list) => {
+  usersList.innerHTML = "";
+  list.forEach(u => {
+    const li = document.createElement("li");
+    li.innerText = u;
+    usersList.appendChild(li);
+  });
+});
+
+// OWNER MONITORING
+monitorBtn.onclick = () => {
+  const target = selectUser.value.trim();
+  if (!target) return alert("Enter username to monitor");
+  socket.emit("owner_select_user", target);
+  monitorOutput.innerHTML = "Loading...";
+};
+
+socket.on("owner_user_monitor", (data) => {
+  monitorOutput.innerHTML = `<h4>Monitoring ${data.username}</h4>`;
+  monitorOutput.innerHTML += `<b>Chat:</b><br>`;
+  data.chat.forEach(m => {
+    monitorOutput.innerHTML += `[${m.room}] ${m.username}: ${m.message}<br>`;
+  });
+  monitorOutput.innerHTML += `<b>DMs:</b><br>`;
+  data.dms.forEach(dm => {
+    monitorOutput.innerHTML += `${dm.from} → ${dm.to}: ${dm.msg}<br>`;
+  });
+});
+
+// KICK / MUTE
+kickBtn.onclick = () => {
+  const target = selectUser.value.trim();
+  if (!target) return alert("Enter username to kick");
+  socket.emit("kick_user", target);
+};
+
+muteBtn.onclick = () => {
+  const target = selectUser.value.trim();
+  if (!target) return alert("Enter username to mute");
+  socket.emit("mute_user", target);
+};
+
+// DM HISTORY
+dmHistoryBtn.onclick = () => {
+  const withUser = prompt("DM with user:");
+  if (!withUser) return;
+  socket.emit("dm_history", { withUser });
+};
+
+socket.on("dm_receive", (msg) => {
+  alert(`DM from ${msg.from}: ${msg.msg}`);
+});
+
+socket.on("dm_history_response", (history) => {
+  dmHistoryDiv.innerHTML = `<h5>Chat with ${history[0]?.from === myUsername ? history[0].to : history[0].from}</h5>`;
+  history.forEach(m => {
+    const div = document.createElement("div");
+    div.innerText = `${m.from}: ${m.msg}`;
+    dmHistoryDiv.appendChild(div);
+  });
+});
