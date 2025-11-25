@@ -1,55 +1,57 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Advanced Chat Room</title>
-  <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Advanced ChatRoom</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
-  <!-- ========================= -->
-  <!-- LOGIN PANEL -->
-  <!-- ========================= -->
-  <div id="loginPanel" class="panel">
-    <h2>Join Chat Room</h2>
-    <input id="username" type="text" placeholder="Enter your username">
+  <div id="loginPanel">
+    <h2>Join ChatRoom</h2>
+    <input id="username" placeholder="Username" />
+    <select id="role">
+      <option value="user">User</option>
+      <option value="admin">Admin</option>
+      <option value="owner">Owner</option>
+    </select>
     <button id="joinBtn">Join</button>
   </div>
 
-  <!-- ========================= -->
-  <!-- CHAT BOX -->
-  <!-- ========================= -->
-  <div id="chatBox" class="chat-container" style="display:none;">
-    
-    <!-- USERS LIST -->
-    <div id="users" class="sidebar"></div>
+  <div id="chatApp" class="hidden">
 
-    <!-- CHAT AREA -->
-    <div class="chat-area">
-      <div id="messages" class="messages"></div>
-      <div id="typing" class="typing-indicator"></div>
-      <input id="msgInput" type="text" placeholder="Type your message...">
-      <button id="sendBtn">Send</button>
+    <div class="sidebar">
+      <h3>Users</h3>
+      <ul id="usersList"></ul>
+
+      <div id="ownerControls" class="owner-only hidden">
+        <h4>Owner Panel</h4>
+        <input id="selectUser" placeholder="Select user to monitor" />
+        <button id="monitorBtn">Monitor</button>
+        <div id="monitorOutput"></div>
+        <button id="kickBtn">Kick</button>
+        <button id="muteBtn">Mute</button>
+      </div>
     </div>
 
-    <!-- ADMIN PANEL -->
-    <div id="adminPanel" class="sidebar" style="display:none;">
-      <h3>Admin / Owner Panel</h3>
-      <button id="kickBtn">Kick User</button>
-      <button id="muteBtn">Mute User</button>
-      <button id="banBtn">Ban User</button>
-      <button id="deleteMsgBtn">Delete Message</button>
-      <button onclick="sendDM()">Send DM</button>
+    <div class="main">
+      <div id="messages" class="messages"></div>
+      <div class="chatInput">
+        <input id="msgInput" placeholder="Message..." />
+        <button id="sendBtn">Send</button>
+      </div>
+
+      <div class="dmSection">
+        <h4>DM</h4>
+        <button id="dmHistoryBtn">Open DM History</button>
+        <div id="dmHistory"></div>
+      </div>
     </div>
 
   </div>
 
-  <!-- ========================= -->
-  <!-- SCRIPTS -->
-  <!-- ========================= -->
   <script src="/socket.io/socket.io.js"></script>
   <script src="app.js"></script>
-
 </body>
 </html>
