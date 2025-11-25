@@ -1,73 +1,71 @@
-// at top-level (above io.on) add:
-const rooms = {}; // { roomName: { users: Set(socketId), score: number } }
+// ---- Rooms lobby integration ----
+const roomsListEl = document.getElementById('roomsList');
+const btnCreateRoom = document.getElementById('btnCreateRoom');
+const currentRoomTitle = document.getElementById('currentRoomTitle');
 
-// inside io.on('connection', socket => { ... })
-socket.on('join_room', (room) => {
-  // join socket.io room
-  socket.join(room);
+let currentRoom = 'global';
+window.roomName = currentRoom; // keep for call.js compat
 
-  // ensure room exists
-  if (!rooms[room]) rooms[room] = { users: new Set(), score: 0 };
-
-  rooms[room].users.add(socket.id);
-  // increment score for trending (simple)
-  rooms[room].score = (rooms[room].score || 0) + 1;
-
-  // attach current room on socket for cleanup
-  socket.currentRoom = room;
-
-  // notify this socket of current rooms list (optional)
-  io.emit('rooms-list', serializeRooms());
-
-  // notify room members of updated online count
-  io.to(room).emit('room-online-count', { room, count: rooms[room].users.size });
-});
-
-socket.on('leave_room', (room) => {
-  try {
-    socket.leave(room);
-    if (rooms[room]) {
-      rooms[room].users.delete(socket.id);
-      io.to(room).emit('room-online-count', { room, count: rooms[room].users.size });
-      if (rooms[room].users.size === 0) {
-        // optional: keep room but lower score; to remove uncomment next line
-        // delete rooms[room];
-      }
-      io.emit('rooms-list', serializeRooms());
-    }
-  } catch(e){}
-});
-
-// when client disconnects, cleanup
-socket.on('disconnect', () => {
-  const r = socket.currentRoom;
-  if (r && rooms[r]) {
-    rooms[r].users.delete(socket.id);
-    io.to(r).emit('room-online-count', { room: r, count: rooms[r].users.size });
-    io.emit('rooms-list', serializeRooms());
-  }
-});
-
-// create room via socket (client triggers)
-socket.on('create-room', (roomName, cb) => {
-  if (!roomName) return cb && cb({ ok:false, error:'empty' });
-  roomName = roomName.trim().slice(0, 80);
-  if (!rooms[roomName]) {
-    rooms[roomName] = { users: new Set(), score: 0 };
-  }
-  io.emit('rooms-list', serializeRooms());
-  cb && cb({ ok:true, room: roomName });
-});
-
-// helper to convert rooms map to array
-function serializeRooms() {
-  // returns sorted array by score desc
-  const arr = Object.keys(rooms).map(r => ({
-    room: r,
-    online: rooms[r].users.size,
-    score: rooms[r].score || 0
-  }));
-  // sort by score desc then name
-  arr.sort((a,b) => b.score - a.score || a.room.localeCompare(b.room));
-  return arr;
+// helper to render rooms
+function renderRooms(rooms) {
+  roomsListEl.innerHTML = '';
+  rooms.forEach(r => {
+    const li = document.createElement('li');
+    li.dataset.room = r.room;
+    li.innerHTML = `<span class="rname">${r.room}</span><span class="rcount">${r.online}</span>`;
+    if (r.room === currentRoom) li.classList.add('active');
+    li.addEventListener('click', () => {
+      joinRoomFromUI(r.room);
+    });
+    roomsListEl.appendChild(li);
+  });
 }
+
+// request rooms initially (server will send on connect via 'rooms-list' or we also request)
+socket.emit('request-rooms'); // optional, server may ignore
+// listen for rooms list
+socket.on('rooms-list', (list) => {
+  renderRooms(list);
+});
+
+// create room button
+btnCreateRoom.addEventListener('click', () => {
+  const name = prompt('Create room (name):');
+  if (!name) return;
+  socket.emit('create-room', name, (res) => {
+    if (res && res.ok) {
+      joinRoomFromUI(res.room);
+    } else {
+      alert('Could not create room');
+    }
+  });
+});
+
+// join helper
+function joinRoomFromUI(room) {
+  // leave previous
+  if (currentRoom) socket.emit('leave_room', currentRoom);
+  currentRoom = room;
+  window.roomName = currentRoom;
+  currentRoomTitle.textContent = room;
+  // clear messages
+  const messagesEl = document.getElementById('messages');
+  messagesEl.innerHTML = '';
+  // join
+  socket.emit('join_room', room);
+  // fetch recent messages via existing REST endpoint if you have one:
+  fetch('/api/fake'); // placeholder - if your REST fetch exists, call it
+}
+
+// update online counts for rooms
+socket.on('room-online-count', (data) => {
+  // update the number in the list if present
+  const li = roomsListEl.querySelector(`li[data-room="${data.room}"]`);
+  if (li) {
+    const span = li.querySelector('.rcount');
+    if (span) span.textContent = data.count;
+  }
+});
+
+// mark default join
+joinRoomFromUI('global');
