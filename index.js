@@ -1,214 +1,180 @@
-// ================================
-// ADVANCED CHAT SERVER (index.js)
-// ================================
-
 const express = require("express");
 const http = require("http");
-const path = require("path");
 const { Server } = require("socket.io");
-const geoip = require("geoip-lite"); // For basic IP location
+const cors = require("cors");
+const path = require("path");
 
 const app = express();
 const server = http.createServer(app);
+const io = new Server(server, { cors: { origin: "*" } });
 
-const io = new Server(server, {
-  cors: {
-    origin: "*"
-  }
-});
-
-// Serve public folder
+app.use(cors());
 app.use(express.static(path.join(__dirname, "public")));
+app.use(express.json());
 
-// ===============================
-// GLOBAL STORAGE
-// ===============================
-const users = {};     // socket.id => { username, role, room, ip }
-const rooms = {};     // room => [username]
-const muted = {};     // username => true
-const banned = {};    // username => true
-const deviceMap = {}; // ip => [username]
+const PORT = process.env.PORT || 3000;
 
-// ===============================
-// SOCKET.IO CONNECTION
-// ===============================
+// In-memory stores (later DB replace करना चाहिए)
+const users = {};         // socketId => { username, role, room }
+const rooms = { "General": [] };  // room → messages array
+const dmLogs = {};        // { "userA-userB": [ { from, to, msg, ts } ] }
+const mutedUsers = new Set();
+
+// Helper to build DM key
+function dmKey(a, b) {
+  // consistent key for two users
+  return [a, b].sort().join("-");
+}
+
 io.on("connection", (socket) => {
+  console.log("New client:", socket.id);
 
-  // -------- JOIN ROOM --------
-  socket.on("joinRoom", ({ username, room, role }) => {
-
-    // Check if banned
-    if (banned[username]) {
-      socket.emit("banned");
-      return;
-    }
-
+  socket.on("join_room", ({ username, room, role }) => {
+    users[socket.id] = { username, role, room };
     socket.join(room);
 
-    // Store user info
-    const ip = socket.handshake.address;
-    const geo = geoip.lookup(ip) || {};
-    users[socket.id] = { username, role, room, ip, geo };
-
-    // Add to room
-    if (!rooms[room]) rooms[room] = [];
-    rooms[room].push(username);
-
-    // Track device/IP
-    if (!deviceMap[ip]) deviceMap[ip] = [];
-    deviceMap[ip].push(username);
-
     // Notify room
-    io.to(room).emit("chatMsg", {
-      user: "System",
-      text: `${username} joined the room`,
-      color: "#f4ae3c"
+    io.to(room).emit("system_message", {
+      message: `${username} joined the room.`
     });
 
-    // Update user list
-    io.to(room).emit("userList", rooms[room]);
+    // Send existing room history
+    socket.emit("room_history", rooms[room] || []);
+
+    // Broadcast user list
+    const userList = Object.values(users)
+      .filter(u => u.room === room)
+      .map(u => u.username);
+    io.to(room).emit("room_users", userList);
   });
 
-  // -------- PUBLIC MESSAGE --------
-  socket.on("sendMsg", (msg) => {
+  socket.on("send_message", ({ message }) => {
     const user = users[socket.id];
     if (!user) return;
-
-    // Check mute
-    if (muted[user.username]) {
-      socket.emit("muted");
+    if (mutedUsers.has(user.username)) {
+      socket.emit("muted_notice", "You are muted!");
       return;
     }
 
-    io.to(user.room).emit("chatMsg", {
-      user: user.username,
-      text: msg,
-      color: user.role === "owner" ? "#00ffff" :
-             user.role === "admin" ? "#ff4d4d" :
-             "#ffffff"
-    });
+    const msgObj = {
+      id: Date.now(),
+      username: user.username,
+      message,
+      ts: Date.now()
+    };
+    rooms[user.room].push(msgObj);
+    io.to(user.room).emit("receive_message", msgObj);
   });
 
-  // -------- PRIVATE DM --------
-  socket.on("dm", ({ toUsername, msg }) => {
-    const sender = users[socket.id];
-    if (!sender) return;
+  // DM send
+  socket.on("dm_send", ({ toUsername, msg }) => {
+    const from = users[socket.id]?.username;
+    if (!from) return;
 
-    // Find socket id of target user
-    let targetId = null;
+    const key = dmKey(from, toUsername);
+    if (!dmLogs[key]) dmLogs[key] = [];
+
+    const dmMessage = {
+      id: Date.now(),
+      from,
+      to: toUsername,
+      msg,
+      ts: Date.now()
+    };
+    dmLogs[key].push(dmMessage);
+
+    // Send to both users if connected
     for (let id in users) {
-      if (users[id].username === toUsername) targetId = id;
-    }
-    if (!targetId) return;
-
-    // Send DM to target
-    io.to(targetId).emit("dmReceive", {
-      from: sender.username,
-      msg
-    });
-
-    // Optionally owner can view all DMs
-    for (let id in users) {
-      if (users[id].role === "owner") {
-        io.to(id).emit("ownerDMView", {
-          from: sender.username,
-          to: toUsername,
-          msg
-        });
+      if (users[id].username === toUsername || users[id].username === from) {
+        io.to(id).emit("dm_receive", dmMessage);
       }
     }
   });
 
-  // -------- KICK USER --------
-  socket.on("kickUser", (targetUser) => {
-    const admin = users[socket.id];
-    if (!admin || (admin.role !== "admin" && admin.role !== "owner")) return;
+  // DM history request
+  socket.on("dm_history", ({ withUser }) => {
+    const from = users[socket.id]?.username;
+    if (!from) return;
 
-    for (let id in users) {
-      if (users[id].username === targetUser) {
-        io.to(id).emit("kicked");
-        io.sockets.sockets.get(id)?.disconnect();
-
-        // Remove from room
-        const room = users[id].room;
-        rooms[room] = rooms[room].filter(u => u !== targetUser);
-
-        io.to(room).emit("userList", rooms[room]);
-        io.to(room).emit("chatMsg", {
-          user: "System",
-          text: `${targetUser} was kicked by ${admin.username}`,
-          color: "#ff4444"
-        });
-      }
-    }
+    const key = dmKey(from, withUser);
+    const history = dmLogs[key] || [];
+    socket.emit("dm_history_response", history);
   });
 
-  // -------- MUTE USER --------
-  socket.on("muteUser", (targetUser) => {
-    const admin = users[socket.id];
-    if (!admin || (admin.role !== "admin" && admin.role !== "owner")) return;
-
-    muted[targetUser] = true;
-    io.emit("notification", `${targetUser} has been muted`);
-  });
-
-  // -------- BAN USER (OWNER ONLY) --------
-  socket.on("banUser", (targetUser) => {
+  // Owner select user to monitor
+  socket.on("owner_select_user", (targetUsername) => {
     const owner = users[socket.id];
     if (!owner || owner.role !== "owner") return;
 
-    banned[targetUser] = true;
-    io.emit("notification", `${targetUser} has been banned`);
-  });
+    // Send room chat + DM logs of that user
+    const userChat = [];
 
-  // -------- DELETE MESSAGE (Admin/Owner) --------
-  socket.on("deleteMsg", ({ room, msgId }) => {
-    const user = users[socket.id];
-    if (!user || (user.role !== "admin" && user.role !== "owner")) return;
+    // Collect room messages of that user
+    for (let room in rooms) {
+      rooms[room].forEach(msg => {
+        if (msg.username === targetUsername) {
+          userChat.push({ room, ...msg });
+        }
+      });
+    }
 
-    io.to(room).emit("deleteMsg", msgId);
-  });
+    // Collect DM logs for that user
+    const userDMs = [];
+    for (let key in dmLogs) {
+      const [a, b] = key.split("-");
+      if (a === targetUsername || b === targetUsername) {
+        userDMs.push(...dmLogs[key]);
+      }
+    }
 
-  // -------- TYPING INDICATOR --------
-  socket.on("typing", (isTyping) => {
-    const user = users[socket.id];
-    if (!user) return;
-
-    socket.to(user.room).emit("typing", {
-      username: user.username,
-      isTyping
+    socket.emit("owner_user_monitor", {
+      username: targetUsername,
+      chat: userChat,
+      dms: userDMs
     });
   });
 
-  // -------- DISCONNECT --------
+  // Kick user
+  socket.on("kick_user", (targetUsername) => {
+    const admin = users[socket.id];
+    if (!admin || (admin.role !== "owner" && admin.role !== "admin")) return;
+
+    for (let id in users) {
+      if (users[id].username === targetUsername) {
+        io.to(id).emit("kicked");
+        io.sockets.sockets.get(id)?.disconnect();
+      }
+    }
+  });
+
+  // Mute user
+  socket.on("mute_user", (targetUsername) => {
+    const admin = users[socket.id];
+    if (!admin || (admin.role !== "owner" && admin.role !== "admin")) return;
+
+    mutedUsers.add(targetUsername);
+    io.emit("system_message", { message: `${targetUsername} was muted.` });
+  });
+
   socket.on("disconnect", () => {
     const user = users[socket.id];
-    if (!user) return;
+    if (user) {
+      io.to(user.room).emit("system_message", {
+        message: `${user.username} left the room.`
+      });
 
-    const { username, room, ip } = user;
+      delete users[socket.id];
 
-    // Remove from room
-    if (rooms[room]) {
-      rooms[room] = rooms[room].filter(u => u !== username);
-      io.to(room).emit("userList", rooms[room]);
+      // Broadcast updated user list
+      const userList = Object.values(users)
+        .filter(u => u.room === user.room)
+        .map(u => u.username);
+      io.to(user.room).emit("room_users", userList);
     }
-
-    // Remove from device map
-    if (deviceMap[ip]) {
-      deviceMap[ip] = deviceMap[ip].filter(u => u !== username);
-    }
-
-    io.to(room).emit("chatMsg", {
-      user: "System",
-      text: `${username} left the room`,
-      color: "#f4ae3c"
-    });
-
-    delete users[socket.id];
   });
 
 });
 
-// -------- START SERVER --------
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+server.listen(PORT, () => {
+  console.log("Server listening on", PORT);
+});
