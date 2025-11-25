@@ -120,4 +120,50 @@ button {
   padding: 10px;
   border-radius: 5px;
   border: none;
-  wi
+  width: calc(100% - 80px);
+  margin-top: 5px;
+  font-size: 14px;
+}
+
+#sendBtn {
+  padding: 10px 15px;
+  margin-left: 5px;
+  border: none;
+  border-radius: 5px;
+  background-color: #4caf50;
+  color: white;
+  font-weight: bold;
+}
+
+#sendBtn:hover {
+  background-color: #45a049;
+}
+
+/* Users list */
+#users h3 {
+  margin-top: 0;
+  margin-bottom: 10px;
+}
+
+#users p {
+  padding: 5px;
+  border-bottom: 1px solid #3a3a5a;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #2a2a40;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #555;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: #888;
+}
