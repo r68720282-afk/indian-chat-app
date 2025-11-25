@@ -1,22 +1,77 @@
-<!-- put this above your chat box (inside .container) -->
-<div class="layout">
-  <aside class="sidebar">
-    <div class="sidebar-header">
-      <h3>Rooms</h3>
-      <button id="btnCreateRoom">Create</button>
-    </div>
-    <ul id="roomsList" class="rooms-list"></ul>
-  </aside>
+<!DOCTYPE html>
+<html>
+<head>
+<title>Indian Chat App – Advanced + Calling</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+</head>
+<body>
 
-  <main class="chat-main">
-    <!-- existing chat UI -->
-    <div id="chatArea">
-      <div class="chat-header"><span id="currentRoomTitle">Global</span></div>
+<div class="container">
+
+  <!-- FULL LAYOUT -->
+  <div class="layout">
+
+    <!-- ⭐ LEFT SIDEBAR — ROOMS -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h3>Rooms</h3>
+        <button id="btnCreateRoom">Create</button>
+      </div>
+
+      <ul id="roomsList" class="rooms-list">
+        <!-- Rooms dynamically load -->
+      </ul>
+    </aside>
+
+    <!-- ⭐ MAIN CHAT AREA -->
+    <main class="chat-main">
+
+      <!-- Room Title -->
+      <div class="chat-header">
+        <span id="currentRoomTitle">Global</span>
+
+        <!-- ⭐ CALL BUTTONS (start/answer/end) -->
+        <div class="call-buttons">
+          <button id="btnStartCall" class="call-btn">📞</button>
+          <button id="btnAnswerCall" class="call-btn" style="display:none;">📲 Answer</button>
+          <button id="btnEndCall" class="call-btn" style="display:none;">❌ End</button>
+        </div>
+      </div>
+
+      <!-- Messages -->
       <div id="messages" class="messages"></div>
+
+      <!-- Message Box -->
       <div class="input-area">
         <input id="msg" placeholder="Type message...">
         <button id="sendBtn">Send</button>
       </div>
-    </div>
-  </main>
+
+    </main>
+
+  </div> <!-- layout end -->
+
+</div> <!-- container end -->
+
+<!-- ⭐ CALL UI (FLOATING WINDOW) -->
+<div class="call-ui" id="callUI" style="display:none;">
+  <div class="videos">
+    <video id="localVideo" autoplay muted playsinline></video>
+    <video id="remoteVideo" autoplay playsinline></video>
+  </div>
+
+  <div class="call-controls">
+    <button id="btnToggleMic">Mute</button>
+    <button id="btnToggleCam">Camera Off</button>
+  </div>
 </div>
+
+<!-- CHAT LOGIC -->
+<script src="app.js"></script>
+
+<!-- CALLING LOGIC -->
+<script src="call.js"></script>
+
+</body>
+</html>
