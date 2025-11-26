@@ -1,0 +1,1 @@
+Client: React app structure (routes, components, styles).

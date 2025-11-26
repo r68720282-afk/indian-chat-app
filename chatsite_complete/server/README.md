@@ -1,0 +1,1 @@
+Server: contains backend API, socket handlers, auth, admin routes, and services.

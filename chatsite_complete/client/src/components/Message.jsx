@@ -1,0 +1,1 @@
+// Message component placeholder
