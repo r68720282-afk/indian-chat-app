@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Select Room – ChatSystem</title>
+
+<style>
+    body {
+        margin: 0;
+        font-family: "Poppins", sans-serif;
+        background: linear-gradient(135deg, #0f0f16, #1b1b33);
+        min-height: 100vh;
+        color: white;
+        padding: 25px;
+    }
+
+    .bg1, .bg2 {
+        position: fixed;
+        width: 400px;
+        height: 400px;
+        filter: blur(150px);
+        opacity: 0.22;
+        z-index: 0;
+    }
+    .bg1 { background: #4dc9ff; top: -50px; left: -50px; }
+    .bg2 { background: #a855f7; bottom: -60px; right: -60px; }
+
+    .container {
+        position: relative;
+        z-index: 10;
+        max-width: 650px;
+        margin: 0 auto;
+    }
+
+    h2 {
+        font-size: 32px;
+        margin-bottom: 20px;
+        text-align: center;
+    }
+
+    .welcome {
+        text-align: center;
+        font-size: 18px;
+        margin-bottom: 25px;
+        color: #cfcfcf;
+    }
+
+    .room-list {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .room {
+        background: rgba(255, 255, 255, 0.07);
+        backdrop-filter: blur(10px);
+        padding: 18px 22px;
+        border-radius: 14px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: 0 0 18px rgba(0,0,0,0.25);
+    }
+
+    .room-name {
+        font-size: 20px;
+        font-weight: 600;
+    }
+
+    .join-btn {
+        padding: 10px 20px;
+        border-radius: 25px;
+        font-size: 16px;
+        font-weight: 600;
+        background: #4dc9ff;
+        border: none;
+        cursor: pointer;
+        color: black;
+        transition: 0.3s;
+    }
+
+    .join-btn:hover {
+        background: #61d4ff;
+        transform: translateY(-2px);
+    }
+</style>
+</head>
+
+<body>
+
+<div class="bg1"></div>
+<div class="bg2"></div>
+
+<div class="container">
+
+    <h2>Choose a Room</h2>
+
+    <div class="welcome" id="welcomeUser">Loading...</div>
+
+    <div class="room-list">
+
+        <div class="room">
+            <div class="room-name">General Chat</div>
+            <button class="join-btn" onclick="joinRoom('general')">Join</button>
+        </div>
+
+        <div class="room">
+            <div class="room-name">Tech Talk</div>
+            <button class="join-btn" onclick="joinRoom('tech')">Join</button>
+        </div>
+
+        <div class="room">
+            <div class="room-name">Fun Zone</div>
+            <button class="join-btn" onclick="joinRoom('fun')">Join</button>
+        </div>
+
+        <div class="room">
+            <div class="room-name">Love Room</div>
+            <button class="join-btn" onclick="joinRoom('love')">Join</button>
+        </div>
+
+        <div class="room">
+            <div class="room-name">Gaming Hub</div>
+            <button class="join-btn" onclick="joinRoom('gaming')">Join</button>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    // Load username / guest info
+    let user = localStorage.getItem("chat_username");
+
+    // If guest data stored as object → parse it
+    try {
+        const parsed = JSON.parse(user);
+        if (parsed.username) user = parsed.username;
+    } catch {}
+
+    if (!user) {
+        window.location.href = "/"; // if no user, send to login
+    }
+
+    document.getElementById("welcomeUser").innerText =
+        "Welcome, " + user + "! Select a room to start chatting.";
+
+    function joinRoom(roomId) {
+        window.location.href = `/chat.html?room=${roomId}`;
+    }
+</script>
+
+</body>
+</html>
