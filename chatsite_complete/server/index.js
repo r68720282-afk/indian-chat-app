@@ -59,7 +59,11 @@ io.on("connection", (socket) => {
     socket.data.username = username || "Guest";
     socket.data.roomId = roomId;
 
-    rooms[roomId].users.add(socket.id);
+    rooms[roomId].users.add({
+    id: socket.id,
+    name: socket.data.username
+});
+
 
     // Load last 100 messages from MongoDB
     const recent = await Message.find({ roomId })
