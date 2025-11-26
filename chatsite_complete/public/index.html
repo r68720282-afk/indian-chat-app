@@ -77,7 +77,6 @@
         margin-bottom: 25px;
     }
 
-    /* INPUT */
     #usernameInput {
         width: 100%;
         padding: 14px;
@@ -90,7 +89,6 @@
         color: #fff;
     }
 
-    /* BUTTONS */
     .btn {
         width: 100%;
         padding: 15px;
@@ -107,6 +105,7 @@
         background: #4dc9ff;
         color: #000;
     }
+
     .login-btn:hover {
         background: #61d4ff;
         transform: translateY(-2px);
@@ -117,6 +116,7 @@
         border: 2px solid #aaa;
         color: #fff;
     }
+
     .guest-btn:hover {
         background: rgba(255,255,255,0.12);
     }
@@ -150,10 +150,8 @@
     <h2>Welcome Back</h2>
     <p>Join our chat community and meet amazing people from around the world.</p>
 
-    <!-- USERNAME INPUT -->
     <input id="usernameInput" type="text" placeholder="Enter username" maxlength="20">
 
-    <!-- BUTTONS -->
     <button class="btn login-btn">Login</button>
     <button class="btn guest-btn">Guest Login</button>
 
@@ -163,8 +161,9 @@
 
 </div>
 
-<!-- JS LOGIN LOGIC -->
 <script>
+
+    // LOGIN NORMAL (username input)
     document.querySelector(".login-btn").addEventListener("click", () => {
         const username = document.getElementById("usernameInput").value.trim();
 
@@ -178,13 +177,11 @@
         window.location.href = "/rooms.html";
     });
 
+    // GUEST LOGIN → NOW OPENS guest.html
     document.querySelector(".guest-btn").addEventListener("click", () => {
-        const guest = "Guest" + Math.floor(Math.random() * 9999);
-
-        localStorage.setItem("chat_username", guest);
-
-        window.location.href = "/rooms.html";
+        window.location.href = "/guest.html";
     });
+
 </script>
 
 </body>
