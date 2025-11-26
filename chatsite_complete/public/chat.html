@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>ChatRoom — ChatSystem</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg1:#071024;
+    --card: rgba(255,255,255,0.04);
+    --glass: rgba(255,255,255,0.06);
+    --accent:#4dc9ff;
+    --muted:#bdbdbd;
+  }
+  html,body{height:100%;margin:0;font-family:"Poppins",sans-serif;background:linear-gradient(135deg,#071024,#0f1430);color:#fff}
+  .app{display:flex;height:100vh;overflow:hidden}
+  /* Sidebar: rooms list */
+  .sidebar{
+    width:260px;background:var(--card);backdrop-filter:blur(12px);padding:18px;border-right:1px solid rgba(255,255,255,0.04);
+    display:flex;flex-direction:column;gap:12px;
+  }
+  .brand{font-weight:700;font-size:20px;color:var(--accent);margin-bottom:6px}
+  .userbox{font-size:14px;color:var(--muted);margin-bottom:8px}
+  .rooms{flex:1;overflow:auto;padding-right:6px}
+  .room-item{padding:12px;border-radius:10px;margin-bottom:8px;cursor:pointer;background:transparent;display:flex;justify-content:space-between;align-items:center}
+  .room-item:hover{background:rgba(255,255,255,0.04);transform:translateX(4px)}
+  .room-item.active{background:linear-gradient(90deg, rgba(77,201,255,0.14), rgba(168,87,247,0.06));box-shadow:0 6px 18px rgba(0,0,0,0.35)}
+  .room-name{font-weight:600}
+  .room-meta{font-size:12px;color:var(--muted)}
+  .create-room{margin-top:auto}
+  .small-btn{padding:8px 12px;border-radius:10px;border:none;background:transparent;color:var(--accent);cursor:pointer}
+  /* Main panel */
+  .main{
+    flex:1;display:flex;flex-direction:column;position:relative;
+  }
+  .main-header{display:flex;justify-content:space-between;align-items:center;padding:22px 26px;border-bottom:1px solid rgba(255,255,255,0.03);background:linear-gradient(180deg,rgba(255,255,255,0.01),transparent)}
+  .room-title{font-size:20px;font-weight:700}
+  .header-right{display:flex;align-items:center;gap:12px;color:var(--muted)}
+  .status-dot{width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px rgba(77,201,255,0.18)}
+  /* messages area */
+  .messages-wrap{flex:1;overflow:auto;padding:20px 26px;display:flex;flex-direction:column;gap:12px;background:
+    linear-gradient(180deg, rgba(255,255,255,0.00), rgba(255,255,255,0.00));}
+  .msg{max-width:70%;padding:10px 12px;border-radius:12px;line-height:1.3;font-size:15px}
+  .msg.me{align-self:flex-end;background:linear-gradient(90deg,#4dc9ff,#61d4ff);color:#000;border-bottom-right-radius:4px}
+  .msg.other{align-self:flex-start;background:rgba(255,255,255,0.04);color:#fff}
+  .msg .meta{font-size:12px;color:var(--muted);margin-bottom:6px}
+  .system-msg{align-self:center;background:transparent;color:var(--muted);font-size:13px;padding:6px 10px;border-radius:8px}
+  /* input area */
+  .composer{display:flex;gap:10px;padding:16px;border-top:1px solid rgba(255,255,255,0.03);align-items:center;background:var(--glass)}
+  .input{flex:1;padding:12px 14px;border-radius:12px;border:none;background:rgba(255,255,255,0.04);color:#fff;outline:none;font-size:15px}
+  .send-btn{padding:12px 18px;border-radius:12px;border:none;background:var(--accent);color:#000;font-weight:700;cursor:pointer}
+  .send-btn:disabled{opacity:0.5;cursor:not-allowed}
+  /* users panel (toggle) */
+  .users-panel{width:260px;background:var(--card);backdrop-filter:blur(12px);padding:18px;border-left:1px solid rgba(255,255,255,0.04);display:flex;flex-direction:column}
+  .users-list{flex:1;overflow:auto;margin-top:10px}
+  .user-row{padding:8px;border-radius:8px;margin-bottom:8px;background:rgba(255,255,255,0.02);display:flex;justify-content:space-between;align-items:center}
+  .typing{font-size:13px;color:var(--muted);padding-left:6px}
+  /* responsive */
+  @media (max-width:900px){
+    .sidebar{display:none}
+    .users-panel{display:none}
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- LEFT: rooms -->
+  <aside class="sidebar">
+    <div class="brand">ChatSystem</div>
+    <div class="userbox" id="userBox">Hello</div>
+
+    <div class="rooms" id="roomsList">
+      <!-- room items appended from JS -->
+    </div>
+
+    <div class="create-room">
+      <button class="small-btn" onclick="location.href='/'">← Back</button>
+    </div>
+  </aside>
+
+  <!-- CENTER: main chat -->
+  <main class="main">
+    <div class="main-header">
+      <div>
+        <div class="room-title" id="roomTitle">Loading…</div>
+        <div class="room-sub" id="roomSub" style="font-size:13px;color:var(--muted)">Room description here</div>
+      </div>
+      <div class="header-right">
+        <div class="status-dot" title="Connected"></div>
+        <div id="onlineCount">0 online</div>
+        <div id="toggleUsers" style="cursor:pointer;color:var(--accent)">Users</div>
+      </div>
+    </div>
+
+    <div class="messages-wrap" id="messages">
+      <!-- messages will append here -->
+    </div>
+
+    <div class="composer">
+      <input id="msgInput" class="input" placeholder="Type a message..." autocomplete="off">
+      <button id="sendBtn" class="send-btn">Send</button>
+    </div>
+  </main>
+
+  <!-- RIGHT: online users -->
+  <aside class="users-panel" id="usersPanel">
+    <div style="font-weight:700">Online Users</div>
+    <div class="users-list" id="usersList"></div>
+    <div style="font-size:13px;color:var(--muted);margin-top:10px">Owner token features coming</div>
+  </aside>
+
+</div>
+
+<!-- Socket.IO client lib served by server -->
+<script src="/socket.io/socket.io.js"></script>
+<script>
+/* ---------- client side chat logic ---------- */
+
+const socket = io(); // connects to same origin
+
+// Get room from query param
+function getQuery(name){ const p = new URLSearchParams(location.search); return p.get(name); }
+const room = getQuery('room') || 'general';
+
+// Load username (string or JSON)
+let username = localStorage.getItem('chat_username') || '';
+try {
+  const parsed = JSON.parse(username);
+  if (parsed && parsed.username) username = parsed.username;
+} catch(e){ /* not JSON */ }
+
+if (!username) {
+  // no user → redirect to login
+  location.href = '/';
+}
+
+// UI elems
+const messagesEl = document.getElementById('messages');
+const sendBtn = document.getElementById('sendBtn');
+const inputEl = document.getElementById('msgInput');
+const roomTitle = document.getElementById('roomTitle');
+const roomSub = document.getElementById('roomSub');
+const userBox = document.getElementById('userBox');
+const onlineCount = document.getElementById('onlineCount');
+const usersListEl = document.getElementById('usersList');
+const roomsListEl = document.getElementById('roomsList');
+const usersPanel = document.getElementById('usersPanel');
+const toggleUsers = document.getElementById('toggleUsers');
+
+userBox.innerText = `You: ${username}`;
+
+// Rooms data (same as rooms page)
+const rooms = {
+  general:{ title:'General Chat', desc:'Public room for casual talk.' },
+  tech:{ title:'Tech Talk', desc:'Discuss coding, AI, and gadgets.' },
+  fun:{ title:'Fun Zone', desc:'Memes, jokes & fun.' },
+  love:{ title:'Love Room', desc:'Friendly conversations & support.' },
+  gaming:{ title:'Gaming Hub', desc:'Talk about games & teams.' }
+};
+
+// Populate sidebar rooms
+Object.keys(rooms).forEach(rid=>{
+  const div = document.createElement('div');
+  div.className = 'room-item' + (rid===room ? ' active' : '');
+  div.dataset.room = rid;
+  div.innerHTML = `<div><div class="room-name">${rooms[rid].title}</div><div class="room-meta">${rooms[rid].desc}</div></div><div style="font-size:12px;color:var(--muted)">→</div>`;
+  div.onclick = ()=>{ location.href = `/chat.html?room=${rid}`; };
+  roomsListEl.appendChild(div);
+});
+
+// Show current room
+function setRoomUI(r){
+  const rdata = rooms[r] || {title:r,desc:''};
+  roomTitle.innerText = rdata.title;
+  roomSub.innerText = rdata.desc;
+}
+setRoomUI(room);
+
+// Render helper
+function fmtTime(ts){
+  const d = new Date(ts);
+  return d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+}
+function appendMessage(m, isMe=false){
+  const el = document.createElement('div');
+  el.className = 'msg ' + (isMe ? 'me' : 'other');
+  const meta = document.createElement('div');
+  meta.className = 'meta';
+  meta.innerHTML = `<div style="font-weight:700;margin-bottom:6px">${m.user || 'System'}</div><div class="meta" style="color:var(--muted);font-size:12px">${fmtTime(m.ts||Date.now())}</div>`;
+  const text = document.createElement('div');
+  text.innerText = m.text;
+  el.appendChild(meta);
+  el.appendChild(text);
+  messagesEl.appendChild(el);
+  // auto-scroll
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+// System message
+function appendSystem(msg){
+  const el = document.createElement('div');
+  el.className = 'system-msg';
+  el.innerText = msg;
+  messagesEl.appendChild(el);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+// Socket handlers
+socket.on('connect', ()=> {
+  console.log('socket connected', socket.id);
+  socket.emit('joinRoom', { roomId: room, username });
+});
+
+// recent messages from server
+socket.on('recentMessages', (list)=>{
+  messagesEl.innerHTML = ''; // clear then render
+  if(Array.isArray(list) && list.length){
+    list.forEach(m => appendMessage(m, m.user===username));
+  } else {
+    appendSystem('No recent messages in this room yet.');
+  }
+});
+
+// new message broadcast
+socket.on('message', (m)=>{
+  appendMessage(m, m.user===username);
+});
+
+// system messages
+socket.on('systemMessage', (m)=>{
+  if(m && m.text) appendSystem(m.text);
+});
+
+// room users count (simple)
+socket.on('roomUsers', (data)=>{
+  const n = data?.users ?? 0;
+  onlineCount.innerText = `${n} online`;
+});
+
+// send message
+sendBtn.addEventListener('click', sendMessage);
+inputEl.addEventListener('keydown', (e)=>{
+  if(e.key==='Enter'){ sendMessage(); }
+  // optional: typing indicator emit
+});
+function sendMessage(){
+  const text = inputEl.value.trim();
+  if(!text) return;
+  const payload = { roomId: room, text };
+  // optimistic append
+  appendMessage({ user: username, text, ts: Date.now() }, true);
+  inputEl.value = '';
+  socket.emit('sendMessage', payload);
+}
+
+// Users list update — optional (server emits only count currently)
+// We'll maintain simple list locally when system messages include join/leave,
+// but if server later emits full users list, handle here:
+function setUsersList(list){
+  usersListEl.innerHTML = '';
+  (list||[]).forEach(u=>{
+    const r = document.createElement('div'); r.className='user-row';
+    r.innerHTML = `<div>${u}</div><div style="font-size:12px;color:var(--muted)">●</div>`;
+    usersListEl.appendChild(r);
+  });
+}
+
+// Toggle users panel
+toggleUsers.onclick = ()=>{
+  usersPanel.style.display = usersPanel.style.display === 'none' ? 'flex' : 'none';
+};
+
+// On disconnect
+socket.on('disconnect', ()=> {
+  appendSystem('Disconnected from server — trying to reconnect...');
+  document.querySelector('.status-dot').style.opacity = '0.4';
+});
+
+socket.on('connect_error', (err)=> {
+  console.warn('connect_error', err);
+  appendSystem('Connection error. Check server.');
+});
+
+/* Optional: request server for users list if API exists (not implemented server-side)
+fetch('/api/rooms').then(()=>{}).catch(()=>{});
+*/
+
+</script>
+</body>
+</html>
