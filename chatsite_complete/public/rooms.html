@@ -6,15 +6,18 @@
 <title>Select Room – ChatSystem</title>
 
 <style>
+
     body {
         margin: 0;
         font-family: "Poppins", sans-serif;
         background: linear-gradient(135deg, #0f0f16, #1b1b33);
-        min-height: 100vh;
+        height: 100vh;
+        display: flex;
+        overflow: hidden;
         color: white;
-        padding: 25px;
     }
 
+    /* Background Lights */
     .bg1, .bg2 {
         position: fixed;
         width: 400px;
@@ -26,55 +29,91 @@
     .bg1 { background: #4dc9ff; top: -50px; left: -50px; }
     .bg2 { background: #a855f7; bottom: -60px; right: -60px; }
 
-    .container {
-        position: relative;
+    /* SIDEBAR */
+    .sidebar {
+        width: 250px;
+        background: rgba(255,255,255,0.06);
+        backdrop-filter: blur(15px);
+        padding: 20px;
         z-index: 10;
-        max-width: 650px;
-        margin: 0 auto;
+        height: 100vh;
+        border-right: 1px solid rgba(255,255,255,0.08);
     }
 
-    h2 {
-        font-size: 32px;
-        margin-bottom: 20px;
+    .sidebar h3 {
+        font-size: 22px;
+        margin-bottom: 15px;
         text-align: center;
     }
 
-    .welcome {
-        text-align: center;
-        font-size: 18px;
-        margin-bottom: 25px;
-        color: #cfcfcf;
+    .room-item {
+        padding: 12px 15px;
+        background: rgba(255,255,255,0.08);
+        margin-bottom: 10px;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: 0.25s;
+        font-size: 17px;
     }
 
-    .room-list {
-        display: flex;
-        flex-direction: column;
-        gap: 15px;
+    .room-item:hover, .room-item.active {
+        background: rgba(255,255,255,0.16);
+        transform: translateX(4px);
     }
 
-    .room {
-        background: rgba(255, 255, 255, 0.07);
-        backdrop-filter: blur(10px);
-        padding: 18px 22px;
-        border-radius: 14px;
+    /* MAIN PANEL */
+    .main-panel {
+        flex: 1;
+        z-index: 10;
+        padding: 30px;
+        position: relative;
+    }
+
+    .top-buttons {
+        position: absolute;
+        top: 15px;
+        right: 20px;
         display: flex;
-        justify-content: space-between;
+        gap: 10px;
+    }
+
+    .top-btn {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        cursor: pointer;
+        background: rgba(255,255,255,0.16);
+        display: flex;
+        justify-content: center;
         align-items: center;
-        box-shadow: 0 0 18px rgba(0,0,0,0.25);
+        font-size: 13px;
+        transition: 0.3s;
     }
 
-    .room-name {
-        font-size: 20px;
-        font-weight: 600;
+    .top-btn:hover {
+        background: rgba(255,255,255,0.28);
+    }
+
+    .room-title {
+        font-size: 30px;
+        margin-top: 40px;
+        font-weight: 700;
+    }
+
+    .room-desc {
+        margin-top: 10px;
+        color: #cfcfcf;
+        line-height: 1.6;
+        max-width: 600px;
     }
 
     .join-btn {
-        padding: 10px 20px;
-        border-radius: 25px;
-        font-size: 16px;
-        font-weight: 600;
-        background: #4dc9ff;
+        margin-top: 25px;
+        padding: 14px 35px;
+        font-size: 18px;
         border: none;
+        border-radius: 30px;
+        background: #4dc9ff;
         cursor: pointer;
         color: black;
         transition: 0.3s;
@@ -84,6 +123,7 @@
         background: #61d4ff;
         transform: translateY(-2px);
     }
+
 </style>
 </head>
 
@@ -92,62 +132,103 @@
 <div class="bg1"></div>
 <div class="bg2"></div>
 
-<div class="container">
+<!-- SIDEBAR -->
+<div class="sidebar">
+    <h3>Rooms</h3>
 
-    <h2>Choose a Room</h2>
+    <div class="room-item active" onclick="selectRoom('general')">General Chat</div>
+    <div class="room-item" onclick="selectRoom('tech')">Tech Talk</div>
+    <div class="room-item" onclick="selectRoom('fun')">Fun Zone</div>
+    <div class="room-item" onclick="selectRoom('love')">Love Room</div>
+    <div class="room-item" onclick="selectRoom('gaming')">Gaming Hub</div>
+</div>
 
-    <div class="welcome" id="welcomeUser">Loading...</div>
+<!-- MAIN PANEL -->
+<div class="main-panel">
 
-    <div class="room-list">
-
-        <div class="room">
-            <div class="room-name">General Chat</div>
-            <button class="join-btn" onclick="joinRoom('general')">Join</button>
-        </div>
-
-        <div class="room">
-            <div class="room-name">Tech Talk</div>
-            <button class="join-btn" onclick="joinRoom('tech')">Join</button>
-        </div>
-
-        <div class="room">
-            <div class="room-name">Fun Zone</div>
-            <button class="join-btn" onclick="joinRoom('fun')">Join</button>
-        </div>
-
-        <div class="room">
-            <div class="room-name">Love Room</div>
-            <button class="join-btn" onclick="joinRoom('love')">Join</button>
-        </div>
-
-        <div class="room">
-            <div class="room-name">Gaming Hub</div>
-            <button class="join-btn" onclick="joinRoom('gaming')">Join</button>
-        </div>
-
+    <div class="top-buttons">
+        <div class="top-btn" onclick="minimize()">—</div>
+        <div class="top-btn" onclick="closePanel()">×</div>
     </div>
+
+    <div id="roomContent">
+        <div class="room-title">General Chat</div>
+        <div class="room-desc">
+            The main public chat room where all users can talk freely.  
+            A place to meet new people and start conversations.
+        </div>
+
+        <button class="join-btn" onclick="joinRoom('general')">Join Room</button>
+    </div>
+
 </div>
 
 <script>
-    // Load username / guest info
+
+    // ROOM DETAILS DATA
+    const roomData = {
+        general: {
+            title: "General Chat",
+            desc: "The main public chat room where everyone can talk freely. Perfect for casual chatting.",
+        },
+        tech: {
+            title: "Tech Talk",
+            desc: "Discuss coding, gadgets, AI, software, and all tech-related topics.",
+        },
+        fun: {
+            title: "Fun Zone",
+            desc: "Jokes, memes, fun talks and unlimited entertainment happen here.",
+        },
+        love: {
+            title: "Love Room",
+            desc: "Friendly & soft conversations. A room for emotional bonding.",
+        },
+        gaming: {
+            title: "Gaming Hub",
+            desc: "Talk about PUBG, FreeFire, BGMI, COD, and all your favorite games.",
+        }
+    };
+
+    // LOAD USER
     let user = localStorage.getItem("chat_username");
 
-    // If guest data stored as object → parse it
     try {
         const parsed = JSON.parse(user);
         if (parsed.username) user = parsed.username;
     } catch {}
 
-    if (!user) {
-        window.location.href = "/"; // if no user, send to login
+    if (!user) window.location.href = "/";
+
+    // SELECT ROOM FUNCTION
+    function selectRoom(roomId) {
+
+        // Make active
+        document.querySelectorAll(".room-item").forEach(r => r.classList.remove("active"));
+        event.target.classList.add("active");
+
+        const data = roomData[roomId];
+
+        document.getElementById("roomContent").innerHTML = `
+            <div class="room-title">${data.title}</div>
+            <div class="room-desc">${data.desc}</div>
+            <button class="join-btn" onclick="joinRoom('${roomId}')">Join Room</button>
+        `;
     }
 
-    document.getElementById("welcomeUser").innerText =
-        "Welcome, " + user + "! Select a room to start chatting.";
-
+    // JOIN ROOM
     function joinRoom(roomId) {
-        window.location.href = `/chat.html?room=${roomId}`;
+        window.location.href = "/chat.html?room=" + roomId;
     }
+
+    // BUTTONS (UI ONLY)
+    function minimize() {
+        alert("Minimize button clicked (UI only).");
+    }
+
+    function closePanel() {
+        window.location.href = "/";
+    }
+
 </script>
 
 </body>
