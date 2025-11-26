@@ -49,18 +49,18 @@
 
   .messages-wrap{flex:1;overflow:auto;padding:20px 26px;display:flex;
     flex-direction:column;gap:12px;}
-  .msg{max-width:70%;padding:10px 12px;border-radius:12px;line-height:1.3;font-size:15px}
+  .msg{max-width:70%;padding:10px 12px;border-radius:12px;line-height:1.3;font-size:15px;word-break:break-word}
   .msg.me{align-self:flex-end;background:linear-gradient(90deg,#4dc9ff,#61d4ff);
-    color:#000;border-bottom-right-radius:4px}
-  .msg.other{align-self:flex-start;background:rgba(255,255,255,0.04);color:#fff}
-  .msg .meta{font-size:12px;color:var(--muted);margin-bottom:6px}
+    color:#000;border-bottom-right-radius:4px;box-shadow:0 6px 18px rgba(77,201,255,0.04)}
+  .msg.other{align-self:flex-start;background:rgba(255,255,255,0.04);color:#fff;box-shadow:0 6px 12px rgba(0,0,0,0.04)}
+  .msg .meta{font-size:12px;color:var(--muted);margin-bottom:6px;display:flex;justify-content:space-between;align-items:center}
   .system-msg{align-self:center;background:transparent;color:var(--muted);font-size:13px;
     padding:6px 10px;border-radius:8px}
 
   .composer{display:flex;gap:10px;padding:16px;border-top:1px solid rgba(255,255,255,0.03);
     align-items:center;background:var(--glass)}
   .input{flex:1;padding:12px 14px;border-radius:12px;border:none;
-    background:rgba(255,255,255,0.04);color:#fff;outline:none;font-size:15px}
+    background:rgba(255,255,255,0.04);color:#fff;outline:none;font-size:15px;resize:none}
   .send-btn{padding:12px 18px;border-radius:12px;border:none;background:var(--accent);
     color:#000;font-weight:700;cursor:pointer}
 
@@ -75,6 +75,17 @@
   @media (max-width:900px){
     .sidebar{display:none}
     .users-panel{display:none}
+  }
+
+  /* subtle fade animation class for appended messages */
+  .fade-in {
+    opacity: 0;
+    transform: translateY(6px);
+    transition: opacity .18s ease, transform .18s ease;
+  }
+  .fade-in.show {
+    opacity: 1;
+    transform: translateY(0);
   }
 </style>
 </head>
@@ -109,7 +120,8 @@
     <div class="messages-wrap" id="messages"></div>
 
     <div class="composer">
-      <input id="msgInput" class="input" placeholder="Type a message..." autocomplete="off">
+      <!-- switched to a textarea-like input for multiline support later -->
+      <textarea id="msgInput" class="input" placeholder="Type a message..." autocomplete="off" rows="1"></textarea>
       <button id="sendBtn" class="send-btn">Send</button>
     </div>
   </main>
@@ -124,6 +136,8 @@
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
+/* ---------- client side chat logic (updated timestamp + appendMessage) ---------- */
+
 const socket = io();
 
 function getQuery(n){return new URLSearchParams(location.search).get(n);}
@@ -177,31 +191,79 @@ function setRoomUI(r){
 }
 setRoomUI(room);
 
+/* ---------------- Timestamp helpers & upgraded appendMessage ---------------- */
+
+function isSameDay(a,b){
+  return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate();
+}
+function isToday(d){
+  return isSameDay(d, new Date());
+}
+function isYesterday(d){
+  const y = new Date(); y.setDate(y.getDate()-1);
+  return isSameDay(d, y);
+}
+
 function fmtTime(ts){
-  const d=new Date(ts);
-  return d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+  const d = ts ? new Date(ts) : new Date();
+  const time = d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+  if (isToday(d)) return `${time}`;            // we'll show Today context in meta if needed
+  if (isYesterday(d)) return `Yesterday • ${time}`;
+  const shortDate = d.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' });
+  return `${shortDate} • ${time}`;
 }
 
+/* appendMessage: compact meta ("Name • time"), fade-in, smart scroll */
 function appendMessage(m,isMe=false){
-  const el=document.createElement('div');
-  el.className='msg '+(isMe?'me':'other');
-  el.innerHTML =
-    `<div class="meta">
-       <div style="font-weight:700;margin-bottom:6px">${m.user}</div>
-       <div style="color:var(--muted);font-size:12px">${fmtTime(m.ts)}</div>
-     </div>
-     <div>${m.text}</div>`;
+  const el = document.createElement('div');
+  el.className = 'msg ' + (isMe ? 'me' : 'other');
+  el.classList.add('fade-in');
+
+  // meta row: name left, time right
+  const meta = document.createElement('div');
+  meta.className = 'meta';
+  const nameDiv = document.createElement('div');
+  nameDiv.style.fontWeight = '700';
+  nameDiv.innerText = m.user || 'System';
+  const timeDiv = document.createElement('div');
+  timeDiv.style.fontSize = '12px';
+  timeDiv.style.color = 'var(--muted)';
+  timeDiv.innerText = fmtTime(m.ts || Date.now());
+  meta.appendChild(nameDiv);
+  meta.appendChild(timeDiv);
+
+  // message text (preserve line breaks)
+  const text = document.createElement('div');
+  text.style.whiteSpace = 'pre-wrap';
+  text.innerText = m.text || '';
+
+  el.appendChild(meta);
+  el.appendChild(text);
+
   messagesEl.appendChild(el);
-  messagesEl.scrollTop=messagesEl.scrollHeight;
+
+  // force reflow then show
+  requestAnimationFrame(()=> el.classList.add('show'));
+
+  // SMART auto-scroll:
+  // If user is near bottom (within 120px), auto scroll; else preserve position
+  const threshold = 120;
+  const isNearBottom = (messagesEl.scrollHeight - messagesEl.clientHeight - messagesEl.scrollTop) <= threshold;
+  if (isNearBottom) {
+    messagesEl.scrollTo({ top: messagesEl.scrollHeight, behavior: 'smooth' });
+  }
 }
 
+/* system message */
 function appendSystem(msg){
   const el=document.createElement('div');
   el.className='system-msg';
   el.innerText=msg;
   messagesEl.appendChild(el);
-  messagesEl.scrollTop=messagesEl.scrollHeight;
+  messagesEl.scrollTop = messagesEl.scrollHeight;
 }
+
+/* ---------------- socket handlers ---------------- */
 
 socket.on('connect',()=>{
   socket.emit('joinRoom',{roomId:room,username});
@@ -209,9 +271,9 @@ socket.on('connect',()=>{
 
 socket.on('recentMessages',list=>{
   messagesEl.innerHTML='';
-  if(list.length){
+  if(Array.isArray(list) && list.length){
     list.forEach(m=>appendMessage(m,m.user===username));
-  }else appendSystem('No recent messages.');
+  } else appendSystem('No recent messages.');
 });
 
 socket.on('message',m=>{
@@ -219,17 +281,14 @@ socket.on('message',m=>{
 });
 
 socket.on('systemMessage',m=>{
-  if(m.text) appendSystem(m.text);
+  if(m && m.text) appendSystem(m.text);
 });
 
-
-// ⭐ FINAL UPDATED USERS LIST HANDLER
+// Users list handler (expects {count, list})
 socket.on("roomUsers", (data) => {
   onlineCount.innerText = `${data.count} online`;
-
   usersListEl.innerHTML = "";
-
-  data.list.forEach((u) => {
+  (data.list || []).forEach((u) => {
     const row = document.createElement("div");
     row.className = "user-row";
     row.innerHTML = `
@@ -240,17 +299,37 @@ socket.on("roomUsers", (data) => {
   });
 });
 
+/* ---------------- send / input handlers ---------------- */
 
+// send message
 function sendMessage(){
-  const text=inputEl.value.trim();
-  if(!text)return;
-  appendMessage({user:username,text,ts:Date.now()},true);
-  socket.emit('sendMessage',{roomId:room,text});
-  inputEl.value='';
+  const text = inputEl.value.trim();
+  if(!text) return;
+
+  // optimistic append
+  appendMessage({user:username, text, ts: Date.now()}, true);
+
+  socket.emit('sendMessage',{roomId:room, text});
+  inputEl.value = '';
+  // shrink textarea back to 1 row
+  inputEl.style.height = 'auto';
 }
 
-sendBtn.onclick=sendMessage;
-inputEl.onkeydown=e=>{if(e.key==='Enter')sendMessage();}
+// Enter = send, Shift+Enter = newline
+inputEl.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+});
+
+// autosize textarea (simple)
+inputEl.addEventListener('input', () => {
+  inputEl.style.height = 'auto';
+  inputEl.style.height = (inputEl.scrollHeight) + 'px';
+});
+
+sendBtn.onclick = sendMessage;
 
 toggleUsers.onclick=()=>{
   usersPanel.style.display = usersPanel.style.display==='none'?'flex':'none';
