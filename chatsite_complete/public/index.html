@@ -1,4 +1,4 @@
-<!-- Public static index placeholder --><!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -6,7 +6,6 @@
 <title>ChatSystem – Login</title>
 
 <style>
-    /* Background */
     body {
         margin: 0;
         font-family: "Poppins", sans-serif;
@@ -18,7 +17,6 @@
         align-items: center;
     }
 
-    /* Blur background lights */
     .bg-blur {
         position: absolute;
         width: 450px;
@@ -42,7 +40,6 @@
         z-index: 0;
     }
 
-    /* Main login box */
     .card {
         position: relative;
         z-index: 10;
@@ -60,9 +57,9 @@
     .logo {
         font-size: 38px;
         font-weight: 800;
-        letter-spacing: 1px;
         margin-bottom: 20px;
     }
+
     .logo span {
         color: #4dc9ff;
     }
@@ -80,7 +77,20 @@
         margin-bottom: 25px;
     }
 
-    /* Buttons */
+    /* INPUT */
+    #usernameInput {
+        width: 100%;
+        padding: 14px;
+        border-radius: 12px;
+        margin-bottom: 15px;
+        font-size: 16px;
+        border: none;
+        outline: none;
+        background: rgba(255,255,255,0.12);
+        color: #fff;
+    }
+
+    /* BUTTONS */
     .btn {
         width: 100%;
         padding: 15px;
@@ -117,17 +127,12 @@
         font-weight: 500;
         color: #cfcfcf;
     }
+
     .register a {
         color: #4dc9ff;
         text-decoration: none;
-        font-weight: 600;
     }
 
-    @media (max-width: 400px) {
-        .card {
-            padding: 28px;
-        }
-    }
 </style>
 </head>
 
@@ -137,6 +142,7 @@
 <div class="bg-blur2"></div>
 
 <div class="card">
+
     <div class="logo">
         <span>Chat</span>System
     </div>
@@ -144,13 +150,42 @@
     <h2>Welcome Back</h2>
     <p>Join our chat community and meet amazing people from around the world.</p>
 
+    <!-- USERNAME INPUT -->
+    <input id="usernameInput" type="text" placeholder="Enter username" maxlength="20">
+
+    <!-- BUTTONS -->
     <button class="btn login-btn">Login</button>
     <button class="btn guest-btn">Guest Login</button>
 
     <div class="register">
         New here? <a href="#">Register Now</a>
     </div>
+
 </div>
+
+<!-- JS LOGIN LOGIC -->
+<script>
+    document.querySelector(".login-btn").addEventListener("click", () => {
+        const username = document.getElementById("usernameInput").value.trim();
+
+        if (!username) {
+            alert("Please enter username");
+            return;
+        }
+
+        localStorage.setItem("chat_username", username);
+
+        window.location.href = "/rooms.html";
+    });
+
+    document.querySelector(".guest-btn").addEventListener("click", () => {
+        const guest = "Guest" + Math.floor(Math.random() * 9999);
+
+        localStorage.setItem("chat_username", guest);
+
+        window.location.href = "/rooms.html";
+    });
+</script>
 
 </body>
 </html>
