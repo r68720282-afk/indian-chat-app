@@ -1,1 +1,156 @@
-<!-- Public static index placeholder -->
+<!-- Public static index placeholder --><!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ChatSystem – Login</title>
+
+<style>
+    /* Background */
+    body {
+        margin: 0;
+        font-family: "Poppins", sans-serif;
+        background: linear-gradient(135deg, #0f0f16, #1b1b33);
+        height: 100vh;
+        overflow: hidden;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    /* Blur background lights */
+    .bg-blur {
+        position: absolute;
+        width: 450px;
+        height: 450px;
+        background: #4dc9ff;
+        opacity: 0.15;
+        filter: blur(130px);
+        top: -50px;
+        left: -50px;
+        z-index: 0;
+    }
+    .bg-blur2 {
+        position: absolute;
+        width: 450px;
+        height: 450px;
+        background: #a855f7;
+        opacity: 0.15;
+        filter: blur(140px);
+        bottom: -60px;
+        right: -60px;
+        z-index: 0;
+    }
+
+    /* Main login box */
+    .card {
+        position: relative;
+        z-index: 10;
+        width: 90%;
+        max-width: 420px;
+        background: rgba(255, 255, 255, 0.06);
+        backdrop-filter: blur(12px);
+        padding: 35px;
+        border-radius: 18px;
+        box-shadow: 0 0 25px rgba(0,0,0,0.35);
+        text-align: center;
+        color: #fff;
+    }
+
+    .logo {
+        font-size: 38px;
+        font-weight: 800;
+        letter-spacing: 1px;
+        margin-bottom: 20px;
+    }
+    .logo span {
+        color: #4dc9ff;
+    }
+
+    h2 {
+        margin: 8px 0 15px;
+        font-size: 26px;
+        font-weight: 600;
+    }
+
+    p {
+        font-size: 16px;
+        color: #cfcfcf;
+        line-height: 1.5;
+        margin-bottom: 25px;
+    }
+
+    /* Buttons */
+    .btn {
+        width: 100%;
+        padding: 15px;
+        border-radius: 30px;
+        font-size: 18px;
+        margin: 8px 0;
+        border: none;
+        cursor: pointer;
+        font-weight: 600;
+        transition: 0.3s;
+    }
+
+    .login-btn {
+        background: #4dc9ff;
+        color: #000;
+    }
+    .login-btn:hover {
+        background: #61d4ff;
+        transform: translateY(-2px);
+    }
+
+    .guest-btn {
+        background: transparent;
+        border: 2px solid #aaa;
+        color: #fff;
+    }
+    .guest-btn:hover {
+        background: rgba(255,255,255,0.12);
+    }
+
+    .register {
+        margin-top: 20px;
+        font-size: 17px;
+        font-weight: 500;
+        color: #cfcfcf;
+    }
+    .register a {
+        color: #4dc9ff;
+        text-decoration: none;
+        font-weight: 600;
+    }
+
+    @media (max-width: 400px) {
+        .card {
+            padding: 28px;
+        }
+    }
+</style>
+</head>
+
+<body>
+
+<div class="bg-blur"></div>
+<div class="bg-blur2"></div>
+
+<div class="card">
+    <div class="logo">
+        <span>Chat</span>System
+    </div>
+
+    <h2>Welcome Back</h2>
+    <p>Join our chat community and meet amazing people from around the world.</p>
+
+    <button class="btn login-btn">Login</button>
+    <button class="btn guest-btn">Guest Login</button>
+
+    <div class="register">
+        New here? <a href="#">Register Now</a>
+    </div>
+</div>
+
+</body>
+</html>
