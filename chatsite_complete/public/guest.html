@@ -1,1 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Guest Login – ChatSystem</title>
+
+<style>
+    body {
+        margin: 0;
+        font-family: "Poppins", sans-serif;
+        background: linear-gradient(135deg, #0f0f16, #1b1b33);
+        height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        color: white;
+    }
+
+    .bg1, .bg2 {
+        position: absolute;
+        width: 400px;
+        height: 400px;
+        filter: blur(150px);
+        opacity: 0.18;
+        z-index: 0;
+    }
+    .bg1 { background: #4dc9ff; top: -50px; left: -60px; }
+    .bg2 { background: #a855f7; bottom: -60px; right: -60px; }
+
+    .box {
+        position: relative;
+        z-index: 10;
+        width: 95%;
+        max-width: 420px;
+        background: rgba(255, 255, 255, 0.07);
+        backdrop-filter: blur(12px);
+        padding: 32px;
+        border-radius: 18px;
+        text-align: center;
+        box-shadow: 0 0 25px rgba(0,0,0,0.4);
+    }
+
+    h2 {
+        font-size: 28px;
+        margin-bottom: 18px;
+    }
+
+    input, select {
+        width: 100%;
+        padding: 14px;
+        border-radius: 12px;
+        border: none;
+        outline: none;
+        background: rgba(255,255,255,0.12);
+        color: white;
+        margin-bottom: 15px;
+        font-size: 15px;
+    }
+
+    .row {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+    }
+
+    .row select {
+        width: 100%;
+    }
+
+    .btn {
+        width: 100%;
+        margin-top: 10px;
+        padding: 15px;
+        font-size: 18px;
+        font-weight: 600;
+        border-radius: 30px;
+        border: none;
+        cursor: pointer;
+        background: #4dc9ff;
+        color: black;
+        transition: 0.3s;
+    }
+
+    .btn:hover {
+        background: #61d4ff;
+        transform: translateY(-2px);
+    }
+</style>
+</head>
+
+<body>
+
+<div class="bg1"></div>
+<div class="bg2"></div>
+
+<div class="box">
+
+    <h2>Guest Login</h2>
+
+    <!-- Username -->
+    <input type="text" id="g_username" placeholder="Enter a username" maxlength="20">
+
+    <!-- GENDER & AGE -->
+    <div class="row">
+        <select id="g_gender">
+            <option value="" disabled selected>Select Gender</option>
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+            <option value="Other">Other</option>
+        </select>
+
+        <select id="g_age">
+            <option value="" disabled selected>Age</option>
+            <script>
+                for (let i = 18; i <= 50; i++)
+                    document.write(`<option value="${i}">${i}</option>`);
+            </script>
+        </select>
+    </div>
+
+    <!-- Button -->
+    <button class="btn" onclick="guestLogin()">Enter Chat</button>
+
+</div>
+
+<script>
+function guestLogin() {
+    const name = document.getElementById("g_username").value.trim();
+    const gender = document.getElementById("g_gender").value;
+    const age = document.getElementById("g_age").value;
+
+    if (!name) return alert("Enter username");
+    if (!gender) return alert("Select gender");
+    if (!age) return alert("Select age");
+
+    // Save details
+    const guestData = {
+        username: name,
+        gender,
+        age
+    };
+
+    localStorage.setItem("chat_username", JSON.stringify(guestData));
+
+    // Redirect to rooms page
+    window.location.href = "/rooms.html";
+}
+</script>
+
+</body>
+</html>
 
