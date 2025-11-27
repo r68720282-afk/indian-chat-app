@@ -55,8 +55,34 @@ onlineUsers = {
 }
 */
 
+
 io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
+
+  /* ------------------- ROOM EVENTS (already added) ------------------- */
+  socket.on("joinRoom", ... );
+  socket.on("sendMessage", ... );
+
+  /* ------------------- DM EVENTS BELOW ------------------- */
+  socket.on("dm:open", async ({ from, to }) => {
+    const msgs = await DMMessage.find({
+      $or: [
+        { from, to },
+        { from: to, to: from }
+      ]
+    }).sort({ ts: 1 });
+
+    socket.emit("dm:history", msgs);
+  });
+
+  socket.on("dm:send", async (data) => {
+    const saved = await DMMessage.create(data);
+
+    io.to(data.to).emit("dm:receive", saved);
+    socket.emit("dm:sent", saved);
+  });
+
+});
 
   // ==========================
   // REGISTER DM USER
