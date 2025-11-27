@@ -1,11 +1,11 @@
-/* ---------------------------------
-   DM POPUP FRONTEND v1
-   (Guest / Registered permissions ready)
------------------------------------*/
+/* ------------------------------------------------------
+   DM POPUP FRONTEND — FULL VERSION (Guest/User Control)
+   Style: ChatSite / ChatAvenue popup design
+-------------------------------------------------------*/
 
 let activeDM = null;
 
-// Temporary local permissions (later backend controlled)
+// Temporary permission system (later Owner Panel will control)
 const DM_PERMISSIONS = {
     guest: {
         emoji: true,
@@ -23,16 +23,16 @@ const DM_PERMISSIONS = {
     }
 };
 
-// get user type
+// get user type (default guest)
 function getUserType() {
-    return localStorage.getItem("chat_user_type") || "guest"; 
+    return localStorage.getItem("chat_user_type") || "guest";
 }
 
 function openDM(targetUser) {
     closeDM(); // close old popup
 
-    const type = getUserType();
-    const perms = DM_PERMISSIONS[type];
+    const userType = getUserType();
+    const perms = DM_PERMISSIONS[userType];
 
     const popup = document.createElement("div");
     popup.className = "dm-popup";
@@ -40,63 +40,87 @@ function openDM(targetUser) {
     popup.innerHTML = `
         <div class="dm-header">
             <div class="dm-user">${targetUser}</div>
-            <div class="dm-actions">
-                <button class="dm-btn" id="dm-min">—</button>
-                <button class="dm-btn" id="dm-max">▢</button>
-                <button class="dm-btn" id="dm-close">✕</button>
+            <div class="dm-header-buttons">
+                <div class="dm-header-btn" id="dm-minimize">–</div>
+                <div class="dm-header-btn" id="dm-maximize">▢</div>
+                <div class="dm-header-btn" id="dm-close">✕</div>
             </div>
         </div>
 
-        <div class="dm-body"></div>
+        <div class="dm-body" id="dm-body"></div>
 
         <div class="dm-footer">
 
             <div class="dm-tools">
-                ${ perms.emoji ? `<button class="tool-btn" id="dm-emoji">😊</button>` : "" }
-                ${ perms.file  ? `<button class="tool-btn" id="dm-file">📎</button>` : "" }
-                ${ perms.mic   ? `<button class="tool-btn" id="dm-mic">🎤</button>` : "" }
-                ${ perms.call  ? `<button class="tool-btn" id="dm-call">📞</button>` : "" }
-                ${ perms.video ? `<button class="tool-btn" id="dm-video">🎥</button>` : "" }
+                ${perms.emoji ? `<button class="tool-btn" id="dm-emoji-btn">😊</button>` : ""}
+                ${perms.file ? `<button class="tool-btn" id="dm-file-btn">📎</button>` : ""}
+                ${perms.mic ? `<button class="tool-btn" id="dm-mic-btn">🎤</button>` : ""}
+                ${perms.call ? `<button class="tool-btn" id="dm-call-btn">📞</button>` : ""}
+                ${perms.video ? `<button class="tool-btn" id="dm-video-btn">🎥</button>` : ""}
             </div>
 
-            <textarea class="dm-input" placeholder="Type a message..."></textarea>
-            <button class="dm-send">Send</button>
+            <textarea class="dm-input" id="dm-input" placeholder="Type a message..."></textarea>
+            <button class="dm-send" id="dm-send-btn">Send</button>
         </div>
     `;
 
     document.body.appendChild(popup);
     activeDM = popup;
 
-    bindDMEvents(popup, targetUser);
+    bindDMEvents(targetUser);
 }
 
-function bindDMEvents(dm, targetUser) {
+function bindDMEvents(targetUser) {
+    const dm = activeDM;
+    if (!dm) return;
+
+    const body = dm.querySelector("#dm-body");
+    const input = dm.querySelector("#dm-input");
+
+    // Close button
     dm.querySelector("#dm-close").onclick = closeDM;
 
-    dm.querySelector("#dm-min").onclick = () => {
+    // Minimize button
+    dm.querySelector("#dm-minimize").onclick = () => {
         dm.classList.toggle("dm-minimized");
     };
 
-    dm.querySelector("#dm-max").onclick = () => {
+    // Maximize button
+    dm.querySelector("#dm-maximize").onclick = () => {
         dm.classList.toggle("dm-maximized");
     };
 
-    dm.querySelector(".dm-send").onclick = () => sendDM(dm, targetUser);
+    // Send button
+    dm.querySelector("#dm-send-btn").onclick = () => sendDM(targetUser);
+
+    // Enter key send
+    input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            sendDM(targetUser);
+        }
+    });
 }
 
-function sendDM(dm, targetUser) {
-    const input = dm.querySelector(".dm-input");
-    const body = dm.querySelector(".dm-body");
+function sendDM(targetUser) {
+    const dm = activeDM;
+    const body = dm.querySelector("#dm-body");
+    const input = dm.querySelector("#dm-input");
+    const text = input.value.trim();
 
-    if (!input.value.trim()) return;
+    if (!text) return;
 
+    // append message locally
     const msg = document.createElement("div");
     msg.className = "dm-msg me";
-    msg.innerText = input.value;
+    msg.innerText = text;
     body.appendChild(msg);
 
     body.scrollTop = body.scrollHeight;
     input.value = "";
+
+    // LATER → send via websocket:
+    // socket.emit("privateMessage", { to: targetUser, text });
 }
 
 function closeDM() {
