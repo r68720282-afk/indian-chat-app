@@ -130,7 +130,9 @@ function closeDM() {
 /* SOCKET CONNECTION */
 const socketDM = io();
 
-/* Register the user for DM system */
+// Added line to store username globally
+window.currentUserName = username;
+
 socketDM.emit("registerUser", window.currentUserName);
 
 /* Open DM when popup created */
