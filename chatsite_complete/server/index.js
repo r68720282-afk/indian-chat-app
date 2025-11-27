@@ -4,6 +4,12 @@ const http = require('http');
 const cors = require('cors');
 const path = require('path');
 const { Server } = require('socket.io');
+// DM system
+const DM = require("./models/dm.model");
+
+// store connected users
+let onlineUsers = {}; 
+// username → socket.id
 
 // Models
 const Message = require("./models/message.model");
