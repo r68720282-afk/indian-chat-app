@@ -340,10 +340,15 @@ socket.on('disconnect',()=>{
   document.querySelector('.status-dot').style.opacity='0.4';
 });
 
-socket.on('connect_error',err=>{
+socket.on('connect_error', err => {
   appendSystem('Connection error.');
 });
 </script>
 
+<!-- DM POPUP FILES -->
+<link rel="stylesheet" href="/dm.css">
+<script src="/dm.js"></script>
+
 </body>
 </html>
+
