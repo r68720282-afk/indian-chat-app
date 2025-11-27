@@ -13,7 +13,6 @@ let onlineUsers = {};
 
 // Models
 const Message = require("./models/message.model");
-const DM = require("./models/dm.model");
 
 // MongoDB Connect
 mongoose.connect(process.env.MONGO_URI)
