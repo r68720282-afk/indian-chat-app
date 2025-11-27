@@ -127,3 +127,39 @@ function closeDM() {
     if (activeDM) activeDM.remove();
     activeDM = null;
 }
+/* SOCKET CONNECTION */
+const socketDM = io();
+
+/* Register the user for DM system */
+socketDM.emit("registerUser", window.currentUserName);
+
+/* Open DM when popup created */
+window.openDM = function(username){
+    currentDM = username;
+    createDMPopup(username);
+
+    socketDM.emit("openDM", {
+        from: window.currentUserName,
+        to: username
+    });
+};
+
+/* Receive old DM history */
+socketDM.on("dmHistory", (data) => {
+    if (!data.history) return;
+    renderDMHistory(data.with, data.history);
+});
+
+/* Send DM */
+window.sendDMMessage = function(to, text){
+    socketDM.emit("dmMessage", {
+        from: window.currentUserName,
+        to,
+        text
+    });
+};
+
+/* Receive DM */
+socketDM.on("dmMessage", (msg) => {
+    addDMMessage(msg.from === window.currentUserName ? "me" : "other", msg.text, msg.ts);
+});
