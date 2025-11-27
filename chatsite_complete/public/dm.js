@@ -1,125 +1,105 @@
+/* ---------------------------------
+   DM POPUP FRONTEND v1
+   (Guest / Registered permissions ready)
+-----------------------------------*/
+
 let activeDM = null;
-let currentUserType = localStorage.getItem("chat_type") || "guest"; // user / guest
 
-/* ============ OPEN DM ============ */
-function openDM(username) {
-  // Close old DM
-  if (activeDM) activeDM.remove();
+// Temporary local permissions (later backend controlled)
+const DM_PERMISSIONS = {
+    guest: {
+        emoji: true,
+        file: false,
+        call: false,
+        mic: false,
+        video: false
+    },
+    user: {
+        emoji: true,
+        file: true,
+        call: true,
+        mic: true,
+        video: true
+    }
+};
 
-  const popup = document.createElement("div");
-  popup.className = "dm-popup";
-  popup.innerHTML = dmTemplate(username);
-
-  document.body.appendChild(popup);
-  activeDM = popup;
-
-  popup.style.display = "flex";
-
-  attachDMEvents(popup, username);
+// get user type
+function getUserType() {
+    return localStorage.getItem("chat_user_type") || "guest"; 
 }
 
-/* ============ TEMPLATE ============ */
-function dmTemplate(username) {
-  const guest = currentUserType === "guest";
+function openDM(targetUser) {
+    closeDM(); // close old popup
 
-  return `
-    <div class='dm-header'>
-      <div class='dm-user'>
-        <div class='dm-avatar'>${username[0]}</div>
-        <div>
-          <div class='dm-title'>${username}</div>
-          <div class='dm-status'>online</div>
+    const type = getUserType();
+    const perms = DM_PERMISSIONS[type];
+
+    const popup = document.createElement("div");
+    popup.className = "dm-popup";
+
+    popup.innerHTML = `
+        <div class="dm-header">
+            <div class="dm-user">${targetUser}</div>
+            <div class="dm-actions">
+                <button class="dm-btn" id="dm-min">—</button>
+                <button class="dm-btn" id="dm-max">▢</button>
+                <button class="dm-btn" id="dm-close">✕</button>
+            </div>
         </div>
-      </div>
 
-      <div class='dm-actions'>
-        ${icon("min")}
-        ${icon("max")}
-        ${icon("settings")}
-        ${icon("close")}
-      </div>
-    </div>
+        <div class="dm-body"></div>
 
-    <div class='dm-body'></div>
+        <div class="dm-footer">
 
-    <div class='dm-footer'>
-      ${icon("emoji")} 
-      ${guest ? "" : icon("file")}
+            <div class="dm-tools">
+                ${ perms.emoji ? `<button class="tool-btn" id="dm-emoji">😊</button>` : "" }
+                ${ perms.file  ? `<button class="tool-btn" id="dm-file">📎</button>` : "" }
+                ${ perms.mic   ? `<button class="tool-btn" id="dm-mic">🎤</button>` : "" }
+                ${ perms.call  ? `<button class="tool-btn" id="dm-call">📞</button>` : "" }
+                ${ perms.video ? `<button class="tool-btn" id="dm-video">🎥</button>` : "" }
+            </div>
 
-      <textarea class='dm-input' placeholder='Type a message...'></textarea>
-      <button class='dm-send'>Send</button>
-    </div>
-  `;
+            <textarea class="dm-input" placeholder="Type a message..."></textarea>
+            <button class="dm-send">Send</button>
+        </div>
+    `;
+
+    document.body.appendChild(popup);
+    activeDM = popup;
+
+    bindDMEvents(popup, targetUser);
 }
 
-/* ============ ICONS ============ */
-function icon(t) {
-  const s = {
-    min: `<button data-act='min'>—</button>`,
-    max: `<button data-act='max'>□</button>`,
-    close: `<button data-act='close'>✖</button>`,
-    settings: `<button data-act='settings'>⚙</button>`,
-    emoji: `<button data-act='emoji'>😊</button>`,
-    file: `<button data-act='file'>📎</button>`
-  };
-  return s[t];
+function bindDMEvents(dm, targetUser) {
+    dm.querySelector("#dm-close").onclick = closeDM;
+
+    dm.querySelector("#dm-min").onclick = () => {
+        dm.classList.toggle("dm-minimized");
+    };
+
+    dm.querySelector("#dm-max").onclick = () => {
+        dm.classList.toggle("dm-maximized");
+    };
+
+    dm.querySelector(".dm-send").onclick = () => sendDM(dm, targetUser);
 }
 
-/* ============ EVENTS ============ */
-function attachDMEvents(box, username) {
+function sendDM(dm, targetUser) {
+    const input = dm.querySelector(".dm-input");
+    const body = dm.querySelector(".dm-body");
 
-  box.querySelector("[data-act='close']").onclick = () => {
-    box.remove();
-    activeDM = null;
-  };
+    if (!input.value.trim()) return;
 
-  box.querySelector("[data-act='max']").onclick = () => {
-    box.classList.toggle("max");
-  };
+    const msg = document.createElement("div");
+    msg.className = "dm-msg me";
+    msg.innerText = input.value;
+    body.appendChild(msg);
 
-  box.querySelector("[data-act='min']").onclick = () => {
-    box.style.display = "none";
-    showMini(username, box);
-  };
-
-  box.querySelector(".dm-send").onclick = () => {
-    const input = box.querySelector(".dm-input");
-    const msg = input.value.trim();
-    if (!msg) return;
-
-    const body = box.querySelector(".dm-body");
-    body.innerHTML += `<div class='dm-bubble me'>${msg}</div>`;
-    input.value = "";
     body.scrollTop = body.scrollHeight;
-  };
-
-  // Emoji click
-  box.querySelector("[data-act='emoji']").onclick = () => {
-    const input = box.querySelector(".dm-input");
-    input.value += "😊";
-  };
+    input.value = "";
 }
 
-/* ============ MINI ICON BAR ============ */
-function showMini(username, ref) {
-  let bar = document.querySelector(".dm-mini-bar");
-  if (!bar) {
-    bar = document.createElement("div");
-    bar.className = "dm-mini-bar";
-    document.body.appendChild(bar);
-  }
-
-  bar.style.display = "flex";
-
-  const item = document.createElement("div");
-  item.className = "dm-mini-item";
-  item.innerHTML = `<div class='dm-avatar'>${username[0]}</div> ${username}`;
-
-  item.onclick = () => {
-    ref.style.display = "flex";
-    item.remove();
-    if (!bar.children.length) bar.style.display = "none";
-  };
-
-  bar.appendChild(item);
+function closeDM() {
+    if (activeDM) activeDM.remove();
+    activeDM = null;
 }
