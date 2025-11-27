@@ -6,6 +6,10 @@
 <title>ChatRoom — ChatSystem</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+
+<!-- DM POPUP CSS (added here for fast loading) -->
+<link rel="stylesheet" href="/dm.css">
+
 <style>
   :root{
     --bg1:#071024;
@@ -70,14 +74,17 @@
   }
   .users-list{flex:1;overflow:auto;margin-top:10px}
   .user-row{padding:8px;border-radius:8px;margin-bottom:8px;background:rgba(255,255,255,0.02);
-    display:flex;justify-content:space-between;align-items:center}
+    display:flex;justify-content:space-between;align-items:center;cursor:pointer;}
+
+  .user-row:hover {
+    background: rgba(255,255,255,0.05);
+  }
 
   @media (max-width:900px){
     .sidebar{display:none}
     .users-panel{display:none}
   }
 
-  /* subtle fade animation class for appended messages */
   .fade-in {
     opacity: 0;
     transform: translateY(6px);
@@ -120,7 +127,6 @@
     <div class="messages-wrap" id="messages"></div>
 
     <div class="composer">
-      <!-- switched to a textarea-like input for multiline support later -->
       <textarea id="msgInput" class="input" placeholder="Type a message..." autocomplete="off" rows="1"></textarea>
       <button id="sendBtn" class="send-btn">Send</button>
     </div>
@@ -135,8 +141,10 @@
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
+<script src="/dm.js"></script>
+
 <script>
-/* ---------- client side chat logic (updated timestamp + appendMessage) ---------- */
+/* ---------- client side chat logic ---------- */
 
 const socket = io();
 
@@ -163,8 +171,20 @@ const roomsListEl = document.getElementById('roomsList');
 const usersPanel = document.getElementById('usersPanel');
 const toggleUsers = document.getElementById('toggleUsers');
 
+/* ----------------- Users list → DM open ----------------- */
+usersListEl.addEventListener("click", (e) => {
+    const row = e.target.closest(".user-row");
+    if (!row) return;
+
+    const name = row.getAttribute("data-name");
+    if (!name) return;
+
+    openDM(name);   // DM popup खुल जाएगा  
+});
+
 userBox.innerText = `You: ${username}`;
 
+/* Rooms UI */
 const rooms = {
   general:{ title:'General Chat', desc:'Public room for casual talk.' },
   tech:{ title:'Tech Talk', desc:'Discuss coding, AI, and gadgets.' },
@@ -191,87 +211,48 @@ function setRoomUI(r){
 }
 setRoomUI(room);
 
-/* ---------------- Timestamp helpers & upgraded appendMessage ---------------- */
-
-function isSameDay(a,b){
-  return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate();
-}
-function isToday(d){
-  return isSameDay(d, new Date());
-}
-function isYesterday(d){
-  const y = new Date(); y.setDate(y.getDate()-1);
-  return isSameDay(d, y);
-}
-
+/* timestamps */
 function fmtTime(ts){
-  const d = ts ? new Date(ts) : new Date();
-  const time = d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
-  if (isToday(d)) return `${time}`;            // we'll show Today context in meta if needed
-  if (isYesterday(d)) return `Yesterday • ${time}`;
-  const shortDate = d.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' });
-  return `${shortDate} • ${time}`;
+  const d=new Date(ts);
+  return d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
 }
 
-/* appendMessage: compact meta ("Name • time"), fade-in, smart scroll */
+/* render messages */
 function appendMessage(m,isMe=false){
-  const el = document.createElement('div');
-  el.className = 'msg ' + (isMe ? 'me' : 'other');
+  const el=document.createElement('div');
+  el.className='msg '+(isMe?'me':'other');
   el.classList.add('fade-in');
 
-  // meta row: name left, time right
-  const meta = document.createElement('div');
-  meta.className = 'meta';
-  const nameDiv = document.createElement('div');
-  nameDiv.style.fontWeight = '700';
-  nameDiv.innerText = m.user || 'System';
-  const timeDiv = document.createElement('div');
-  timeDiv.style.fontSize = '12px';
-  timeDiv.style.color = 'var(--muted)';
-  timeDiv.innerText = fmtTime(m.ts || Date.now());
-  meta.appendChild(nameDiv);
-  meta.appendChild(timeDiv);
-
-  // message text (preserve line breaks)
-  const text = document.createElement('div');
-  text.style.whiteSpace = 'pre-wrap';
-  text.innerText = m.text || '';
-
-  el.appendChild(meta);
-  el.appendChild(text);
+  el.innerHTML = `
+    <div class="meta">
+       <div style="font-weight:700;margin-bottom:6px">${m.user}</div>
+       <div style="color:var(--muted);font-size:12px">${fmtTime(m.ts)}</div>
+    </div>
+    <div>${m.text}</div>
+  `;
 
   messagesEl.appendChild(el);
 
-  // force reflow then show
   requestAnimationFrame(()=> el.classList.add('show'));
-
-  // SMART auto-scroll:
-  // If user is near bottom (within 120px), auto scroll; else preserve position
-  const threshold = 120;
-  const isNearBottom = (messagesEl.scrollHeight - messagesEl.clientHeight - messagesEl.scrollTop) <= threshold;
-  if (isNearBottom) {
-    messagesEl.scrollTo({ top: messagesEl.scrollHeight, behavior: 'smooth' });
-  }
+  messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
-/* system message */
 function appendSystem(msg){
   const el=document.createElement('div');
   el.className='system-msg';
   el.innerText=msg;
   messagesEl.appendChild(el);
-  messagesEl.scrollTop = messagesEl.scrollHeight;
+  messagesEl.scrollTop=messagesEl.scrollHeight;
 }
 
-/* ---------------- socket handlers ---------------- */
-
+/* socket events */
 socket.on('connect',()=>{
   socket.emit('joinRoom',{roomId:room,username});
 });
 
 socket.on('recentMessages',list=>{
   messagesEl.innerHTML='';
-  if(Array.isArray(list) && list.length){
+  if(list.length){
     list.forEach(m=>appendMessage(m,m.user===username));
   } else appendSystem('No recent messages.');
 });
@@ -281,16 +262,18 @@ socket.on('message',m=>{
 });
 
 socket.on('systemMessage',m=>{
-  if(m && m.text) appendSystem(m.text);
+  if(m.text) appendSystem(m.text);
 });
 
-// Users list handler (expects {count, list})
+/* ---------------- online users updated ------------------- */
 socket.on("roomUsers", (data) => {
   onlineCount.innerText = `${data.count} online`;
   usersListEl.innerHTML = "";
+
   (data.list || []).forEach((u) => {
     const row = document.createElement("div");
     row.className = "user-row";
+    row.setAttribute("data-name", u.name);
     row.innerHTML = `
         <div>${u.name}</div>
         <div style="color:#4dc9ff; font-size:12px;">●</div>
@@ -299,37 +282,23 @@ socket.on("roomUsers", (data) => {
   });
 });
 
-/* ---------------- send / input handlers ---------------- */
-
-// send message
+/* send message */
 function sendMessage(){
-  const text = inputEl.value.trim();
-  if(!text) return;
+  const text=inputEl.value.trim();
+  if(!text)return;
 
-  // optimistic append
-  appendMessage({user:username, text, ts: Date.now()}, true);
-
-  socket.emit('sendMessage',{roomId:room, text});
-  inputEl.value = '';
-  // shrink textarea back to 1 row
-  inputEl.style.height = 'auto';
+  appendMessage({user:username,text,ts:Date.now()},true);
+  socket.emit('sendMessage',{roomId:room,text});
+  inputEl.value='';
 }
 
-// Enter = send, Shift+Enter = newline
-inputEl.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && !e.shiftKey) {
+inputEl.addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&!e.shiftKey){
     e.preventDefault();
     sendMessage();
   }
 });
-
-// autosize textarea (simple)
-inputEl.addEventListener('input', () => {
-  inputEl.style.height = 'auto';
-  inputEl.style.height = (inputEl.scrollHeight) + 'px';
-});
-
-sendBtn.onclick = sendMessage;
+sendBtn.onclick=sendMessage;
 
 toggleUsers.onclick=()=>{
   usersPanel.style.display = usersPanel.style.display==='none'?'flex':'none';
@@ -337,24 +306,8 @@ toggleUsers.onclick=()=>{
 
 socket.on('disconnect',()=>{
   appendSystem('Disconnected — reconnecting...');
-  document.querySelector('.status-dot').style.opacity='0.4';
-});
-
-socket.on('connect_error', err => {
-  appendSystem('Connection error.');
 });
 </script>
 
-<!-- DM POPUP FILES -->
-<link rel="stylesheet" href="/dm.css">
-<script src="/dm.js"></script>
-
-<!-- TEST BUTTON (Temporary) -->
-<button onclick="openDM('Rohit')" 
-style="position:fixed; top:20px; left:20px; z-index:9999;">
-TEST DM
-</button>
-
 </body>
 </html>
-
