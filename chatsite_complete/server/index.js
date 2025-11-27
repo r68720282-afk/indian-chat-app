@@ -1,43 +1,19 @@
 const mongoose = require("mongoose");
-const express = require('express');
-const http = require('http');
-const cors = require('cors');
-const path = require('path');
-const { Server } = require('socket.io');
-// DM system
+const express = require("express");
+const http = require("http");
+const cors = require("cors");
+const path = require("path");
+const { Server } = require("socket.io");
+
+// MODELS
+const Message = require("./models/message.model");
 const DM = require("./models/dm.model");
 
-// Models
-const Message = require("./models/message.model");
+// MAP for online users
+// username → socketId
+const onlineUsers = new Map();
 
-// MongoDB Connect
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log("MongoDB Connected"))
-  .catch(err => console.log("Mongo Error:", err));
-
-const app = express();
-app.use(cors());
-app.use(express.json());
-
-// API Routes
-const statusRoutes = require("./routes/status.routes");
-const roomsRoutes = require("./routes/rooms.routes");
-
-app.use("/api/status", statusRoutes);
-app.use("/api/rooms", roomsRoutes);
-
-// Public folder
-app.use(express.static(path.join(__dirname, '..', 'public')));
-
-app.get('/api', (req, res) => {
-  res.json({ status: "Chat server running", time: Date.now() });
-});
-
-// Server + Socket
-const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: "*" } });
-
-// Rooms storage (MAP for online users)
+// ROOM DATA
 const rooms = {
   general: { id: "general", users: new Map() },
   tech: { id: "tech", users: new Map() },
@@ -46,78 +22,67 @@ const rooms = {
   gaming: { id: "gaming", users: new Map() }
 };
 
-// Store all connected sockets by username
-const onlineUsers = new Map();
+/* -------------------------------------------
+   MONGO CONNECT
+------------------------------------------- */
+mongoose
+  .connect(process.env.MONGO_URI)
+  .then(() => console.log("MongoDB Connected"))
+  .catch((err) => console.log("Mongo Error:", err));
 
+/* -------------------------------------------
+   APP + SERVER + SOCKET
+------------------------------------------- */
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+// static public folder
+app.use(express.static(path.join(__dirname, "..", "public")));
+
+app.get("/api", (req, res) => {
+  res.json({ status: "Chat server running", time: Date.now() });
+});
+
+const server = http.createServer(app);
+const io = new Server(server, { cors: { origin: "*" } });
+
+/* -------------------------------------------
+   SOCKET CONNECTION
+------------------------------------------- */
 io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
 
-  // ==========================
-  // REGISTER DM USER
-  // ==========================
+  /* ----------------------------
+      REGISTER USER (DM SUPPORT)
+  ---------------------------- */
   socket.on("registerUser", (username) => {
     if (!username) return;
     socket.data.username = username;
     onlineUsers.set(username, socket.id);
-    console.log("DM Registered:", username);
+    console.log("Registered for DM:", username);
   });
 
-  // ==========================
-  // OPEN DM: SEND HISTORY
-  // ==========================
-  socket.on("dm:open", async ({ from, to }) => {
-    if (!from || !to) return;
-    try {
-      const history = await DM.find({
-        $or: [
-          { from, to },
-          { from: to, to: from }
-        ]
-      }).sort({ ts: 1 }).limit(200);
-
-      socket.emit("dm:history", history);
-    } catch (err) {
-      console.log("DM history error:", err);
-    }
-  });
-
-  // ==========================
-  // SEND DM MESSAGE
-  // ==========================
-  socket.on("dm:send", async (msg) => {
-    try {
-      const saved = await DM.create(msg);
-      const receiverSocket = onlineUsers.get(msg.to);
-
-      if (receiverSocket) {
-        io.to(receiverSocket).emit("dm:receive", saved);
-      }
-
-      socket.emit("dm:sent", saved);
-    } catch (err) {
-      console.log("DM send error:", err);
-    }
-  });
-
-  // ==========================
-  // JOIN ROOM
-  // ==========================
+  /* ----------------------------
+      JOIN ROOM
+  ---------------------------- */
   socket.on("joinRoom", async ({ roomId, username }) => {
     if (!roomId) roomId = "general";
+
+    socket.join(roomId);
+    socket.data.username = username;
+    socket.data.roomId = roomId;
 
     if (!rooms[roomId]) {
       rooms[roomId] = { id: roomId, users: new Map() };
     }
 
-    socket.join(roomId);
-    socket.data.username = username || socket.data.username || "Guest";
-    socket.data.roomId = roomId;
-
     rooms[roomId].users.set(socket.id, {
       id: socket.id,
-      name: socket.data.username
+      name: username
     });
 
+    // Load recent messages
     const recent = await Message.find({ roomId })
       .sort({ ts: 1 })
       .limit(100)
@@ -125,16 +90,17 @@ io.on("connection", (socket) => {
 
     socket.emit("recentMessages", recent);
 
-    io.to(roomId).emit("systemMessage", { text: `${socket.data.username} joined` });
+    io.to(roomId).emit("systemMessage", { text: `${username} joined` });
+
     io.to(roomId).emit("roomUsers", {
       count: rooms[roomId].users.size,
       list: Array.from(rooms[roomId].users.values())
     });
   });
 
-  // ==========================
-  // ROOM MESSAGES
-  // ==========================
+  /* ----------------------------
+      SEND ROOM MESSAGE
+  ---------------------------- */
   socket.on("sendMessage", async ({ roomId, text }) => {
     roomId = roomId || socket.data.roomId;
 
@@ -148,54 +114,76 @@ io.on("connection", (socket) => {
     try {
       const saved = await Message.create(msg);
       io.to(roomId).emit("message", saved);
-    } catch (err) {
-      console.log("Message save error:", err);
-      io.to(roomId).emit("message", msg);
+    } catch {
+      io.to(roomId).emit("message", msg); // fallback
     }
   });
 
-  // ==========================
-  // SEND DIRECT MESSAGE
-  // ==========================
-  socket.on("dmMessage", async ({ from, to, text }) => {
-    const msg = { from, to, text, ts: Date.now() };
+  /* ----------------------------
+      OPEN DIRECT MESSAGE WINDOW
+  ---------------------------- */
+  socket.on("dm:open", async ({ from, to }) => {
+    const history = await DM.find({
+      $or: [
+        { from, to },
+        { from: to, to: from }
+      ]
+    })
+      .sort({ ts: 1 })
+      .limit(200)
+      .lean();
 
-    await DM.create(msg);
+    socket.emit("dm:history", history);
+  });
+
+  /* ----------------------------
+      SEND DIRECT MESSAGE
+  ---------------------------- */
+  socket.on("dm:send", async ({ from, to, text }) => {
+    const msg = {
+      from,
+      to,
+      text,
+      ts: Date.now()
+    };
+
+    const saved = await DM.create(msg);
 
     // Send to sender
-    socket.emit("dmMessage", msg);
+    socket.emit("dm:sent", saved);
 
-    // Send to receiver if online
-    const targetSocket = onlineUsers.get(to);
-    if (targetSocket) {
-      io.to(targetSocket).emit("dmMessage", msg);
+    // Send to receiver (if online)
+    const receiverId = onlineUsers.get(to);
+    if (receiverId) {
+      io.to(receiverId).emit("dm:receive", saved);
     }
   });
 
-  // ==========================
-  // DISCONNECT
-  // ==========================
+  /* ----------------------------
+      DISCONNECT
+  ---------------------------- */
   socket.on("disconnect", () => {
+    const username = socket.data.username;
     const roomId = socket.data.roomId;
+
+    if (username) onlineUsers.delete(username);
+
     if (roomId && rooms[roomId]) {
       rooms[roomId].users.delete(socket.id);
 
-      io.to(roomId).emit("systemMessage", { text: `${socket.data.username} left` });
       io.to(roomId).emit("roomUsers", {
         count: rooms[roomId].users.size,
         list: Array.from(rooms[roomId].users.values())
       });
     }
 
-    if (socket.data.username) {
-      onlineUsers.delete(socket.data.username);
-    }
-
     console.log("User disconnected:", socket.id);
   });
 });
 
-// Start server
+/* -------------------------------------------
+   START SERVER
+------------------------------------------- */
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
   console.log("Server running on port", PORT);
