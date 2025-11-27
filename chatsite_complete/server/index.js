@@ -7,6 +7,7 @@ const { Server } = require('socket.io');
 
 // Models
 const Message = require("./models/message.model");
+const DM = require("./models/dm.model");
 
 // MongoDB Connect
 mongoose.connect(process.env.MONGO_URI)
@@ -44,29 +45,47 @@ const rooms = {
   gaming: { id: "gaming", users: new Map() }
 };
 
-// SOCKET HANDLING
+// Store all connected sockets by username
+const onlineUsers = new Map();
+
+/*
+onlineUsers = {
+  "Rohit" : socket.id,
+  "Guest123" : socket.id
+}
+*/
+
 io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
 
+  // ==========================
+  // REGISTER DM USER
+  // ==========================
+  socket.on("registerUser", (username) => {
+    socket.data.username = username;
+    onlineUsers.set(username, socket.id);
+    console.log("DM user registered:", username);
+  });
+
+  // ==========================
+  // JOIN ROOM
+  // ==========================
   socket.on("joinRoom", async ({ roomId, username }) => {
     if (!roomId) roomId = "general";
 
-    // Create room if not exists
     if (!rooms[roomId]) {
       rooms[roomId] = { id: roomId, users: new Map() };
     }
 
     socket.join(roomId);
-    socket.data.username = username || "Guest";
+    socket.data.username = username || socket.data.username || "Guest";
     socket.data.roomId = roomId;
 
-    // Save user in MAP
     rooms[roomId].users.set(socket.id, {
       id: socket.id,
       name: socket.data.username
     });
 
-    // Load last 100 messages from MongoDB
     const recent = await Message.find({ roomId })
       .sort({ ts: 1 })
       .limit(100)
@@ -74,16 +93,17 @@ io.on("connection", (socket) => {
 
     socket.emit("recentMessages", recent);
 
-    // System join message
     io.to(roomId).emit("systemMessage", { text: `${socket.data.username} joined` });
 
-    // Send full user list
     io.to(roomId).emit("roomUsers", {
       count: rooms[roomId].users.size,
       list: Array.from(rooms[roomId].users.values())
     });
   });
 
+  // ==========================
+  // ROOM MESSAGES
+  // ==========================
   socket.on("sendMessage", async ({ roomId, text }) => {
     roomId = roomId || socket.data.roomId;
 
@@ -99,13 +119,50 @@ io.on("connection", (socket) => {
       io.to(roomId).emit("message", saved);
     } catch (err) {
       console.log("Message save error:", err);
-      io.to(roomId).emit("message", msg); // fallback
+      io.to(roomId).emit("message", msg);
     }
   });
 
+  // ==========================
+  // OPEN DM WINDOW
+  // ==========================
+  socket.on("openDM", async ({ from, to }) => {
+    const history = await DM.find({
+      $or: [
+        { from, to },
+        { from: to, to: from }
+      ]
+    })
+    .sort({ ts: 1 })
+    .limit(100)
+    .lean();
+
+    socket.emit("dmHistory", { with: to, history });
+  });
+
+  // ==========================
+  // SEND DIRECT MESSAGE
+  // ==========================
+  socket.on("dmMessage", async ({ from, to, text }) => {
+    const msg = { from, to, text, ts: Date.now() };
+
+    await DM.create(msg);
+
+    // Send to sender (local window)
+    socket.emit("dmMessage", msg);
+
+    // Send to receiver if online
+    const targetSocket = onlineUsers.get(to);
+    if (targetSocket) {
+      io.to(targetSocket).emit("dmMessage", msg);
+    }
+  });
+
+  // ==========================
+  // DISCONNECT
+  // ==========================
   socket.on("disconnect", () => {
     const roomId = socket.data.roomId;
-
     if (roomId && rooms[roomId]) {
       rooms[roomId].users.delete(socket.id);
 
@@ -117,11 +174,15 @@ io.on("connection", (socket) => {
       });
     }
 
+    if (socket.data.username) {
+      onlineUsers.delete(socket.data.username);
+    }
+
     console.log("User disconnected:", socket.id);
   });
 });
 
-// Start
+// Start server
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
   console.log("Server running on port", PORT);
