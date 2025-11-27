@@ -64,6 +64,58 @@ onlineUsers = {
 
 io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
+// USER REGISTRATION FOR DM
+socket.on("registerUser", (username) => {
+  if (!username) return;
+  onlineUsers[username] = socket.id;
+  console.log("DM Registered:", username);
+});
+
+// OPEN DM: SEND HISTORY
+socket.on("dm:open", async ({ from, to }) => {
+  if (!from || !to) return;
+
+  try {
+    const history = await DM.find({
+      $or: [
+        { from, to },
+        { from: to, to: from }
+      ]
+    }).sort({ ts: 1 }).limit(200);
+
+    socket.emit("dm:history", history);
+  } catch (err) {
+    console.log("DM history error:", err);
+  }
+});
+
+// SEND DM MESSAGE
+socket.on("dm:send", async (msg) => {
+  try {
+    const saved = await DM.create(msg);
+
+    const receiverSocket = onlineUsers[msg.to];
+
+    if (receiverSocket) {
+      io.to(receiverSocket).emit("dm:receive", saved);
+    }
+
+    socket.emit("dm:sent", saved);
+
+  } catch (err) {
+    console.log("DM send error:", err);
+  }
+});
+
+// DISCONNECT CLEANUP
+socket.on("disconnect", () => {
+  for (const u in onlineUsers) {
+    if (onlineUsers[u] === socket.id) {
+      delete onlineUsers[u];
+      break;
+    }
+  }
+});
 
   /* ------------------- ROOM EVENTS (already added) ------------------- */
   socket.on("joinRoom", ... );
