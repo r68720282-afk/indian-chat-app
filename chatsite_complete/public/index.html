@@ -17,13 +17,14 @@
         align-items: center;
     }
 
+    /* LIGHT BLUR EFFECT */
     .bg-blur {
         position: absolute;
         width: 450px;
         height: 450px;
         background: #4dc9ff;
-        opacity: 0.15;
-        filter: blur(130px);
+        opacity: 0.13;
+        filter: blur(140px);
         top: -50px;
         left: -50px;
         z-index: 0;
@@ -33,32 +34,33 @@
         width: 450px;
         height: 450px;
         background: #a855f7;
-        opacity: 0.15;
+        opacity: 0.13;
         filter: blur(140px);
         bottom: -60px;
         right: -60px;
         z-index: 0;
     }
 
+    /* MAIN CARD */
     .card {
         position: relative;
         z-index: 10;
         width: 90%;
         max-width: 420px;
-        background: rgba(255, 255, 255, 0.06);
-        backdrop-filter: blur(12px);
+        background: rgba(255, 255, 255, 0.07);
+        backdrop-filter: blur(14px);
         padding: 35px;
         border-radius: 18px;
-        box-shadow: 0 0 25px rgba(0,0,0,0.35);
         text-align: center;
         color: #fff;
+        box-shadow: 0 0 25px rgba(0,0,0,0.45);
     }
 
     .logo {
         font-size: 38px;
         font-weight: 800;
+        color: #ffffff;
         margin-bottom: 20px;
-        color: #ffffff; /* Pure white */
     }
 
     h2 {
@@ -70,20 +72,7 @@
     p {
         font-size: 16px;
         color: #cfcfcf;
-        line-height: 1.5;
         margin-bottom: 25px;
-    }
-
-    .input-box {
-        width: 100%;
-        padding: 14px;
-        border-radius: 12px;
-        margin-bottom: 15px;
-        font-size: 16px;
-        border: none;
-        outline: none;
-        background: rgba(255,255,255,0.12);
-        color: #fff;
     }
 
     .btn {
@@ -98,13 +87,13 @@
         transition: 0.3s;
     }
 
+    /* LOGIN BUTTON LIGHT GREEN */
     .login-btn {
-        background: #4dc9ff;
+        background: #32d580;
         color: #000;
     }
-
     .login-btn:hover {
-        background: #61d4ff;
+        background: #4be799;
         transform: translateY(-2px);
     }
 
@@ -113,43 +102,40 @@
         border: 2px solid #aaa;
         color: #fff;
     }
-
     .guest-btn:hover {
-        background: rgba(255,255,255,0.12);
+        background: rgba(255,255,255,0.15);
     }
 
     .register {
         margin-top: 20px;
-        font-size: 17px;
-        font-weight: 500;
         color: #cfcfcf;
+        font-size: 17px;
     }
-
     .register a {
         color: #4dc9ff;
-        text-decoration: none;
         cursor: pointer;
     }
 
-    /* POPUP CSS */
+    /* POPUP BACKDROP */
     .popup-backdrop {
         position: fixed;
         top: 0; left: 0;
         width: 100%; height: 100%;
-        background: rgba(0,0,0,0.6);
+        background: rgba(0,0,0,0.55);
         display: none;
         justify-content: center;
         align-items: center;
         z-index: 200;
     }
 
+    /* POPUP BOX */
     .popup-box {
         width: 350px;
         background: #1b1b33;
         color: white;
         padding: 20px;
         border-radius: 16px;
-        box-shadow: 0 0 25px rgba(0,0,0,0.5);
+        box-shadow: 0 0 28px rgba(0,0,0,0.6);
         animation: popupShow 0.3s ease;
     }
 
@@ -163,18 +149,17 @@
         justify-content: space-between;
         margin-bottom: 15px;
     }
-
+    .popup-close {
+        font-size: 26px;
+        cursor: pointer;
+    }
     .popup-title {
         font-size: 22px;
         font-weight: 600;
     }
 
-    .popup-close {
-        font-size: 26px;
-        cursor: pointer;
-    }
-
-    .popup-body input {
+    .popup-body input,
+    .popup-body select {
         width: 100%;
         padding: 12px;
         background: rgba(255,255,255,0.12);
@@ -187,17 +172,24 @@
     .register-btn {
         width: 100%;
         padding: 12px;
-        background: #22c55e; /* GREEN */
+        background: #22c55e;
         border: none;
         border-radius: 25px;
-        color: black;
         font-size: 16px;
         cursor: pointer;
-        margin-top: 10px;
+        color: black;
     }
-
     .register-btn:hover {
         background: #4ade80;
+    }
+
+    /* FORGOT PASSWORD */
+    .forgot {
+        text-align: left;
+        font-size: 14px;
+        margin-bottom: 10px;
+        color: #87c7ff;
+        cursor: pointer;
     }
 
 </style>
@@ -209,22 +201,40 @@
 <div class="bg-blur2"></div>
 
 <div class="card">
-
     <div class="logo">ChatSystem</div>
 
     <h2>Welcome Back</h2>
-    <p>Join our chat community and meet amazing people from around the world.</p>
+    <p>Join our chat community and meet people from around the world.</p>
 
-    <input id="login_user" class="input-box" type="text" placeholder="Username or Email">
-    <input id="login_pass" class="input-box" type="password" placeholder="Password">
-
-    <button class="btn login-btn">Login</button>
-    <button class="btn guest-btn">Guest Login</button>
+    <!-- LOGIN BUTTON ONLY -->
+    <button class="btn login-btn" onclick="openLogin()">Login</button>
+    <button class="btn guest-btn" onclick="openGuest()">Guest Login</button>
 
     <div class="register">
         New here? <a onclick="openRegister()">Register Now</a>
     </div>
+</div>
 
+<!-- LOGIN POPUP -->
+<div id="loginPopup" class="popup-backdrop">
+    <div class="popup-box">
+
+        <div class="popup-header">
+            <span class="popup-title">LOGIN</span>
+            <span class="popup-close" onclick="closeLogin()">&times;</span>
+        </div>
+
+        <div class="popup-body">
+            <input id="login_user" type="text" placeholder="Username or Email">
+
+            <input id="login_pass" type="password" placeholder="Password">
+
+            <div class="forgot">Forgot Password?</div>
+
+            <button class="register-btn" onclick="loginUser()">Login</button>
+        </div>
+
+    </div>
 </div>
 
 <!-- REGISTER POPUP -->
@@ -239,8 +249,26 @@
         <div class="popup-body">
 
             <input type="text" id="r_username" placeholder="Username">
+
             <input type="email" id="r_email" placeholder="Email">
+
             <input type="password" id="r_password" placeholder="Password">
+
+            <select id="r_gender">
+                <option value="" disabled selected>Select Gender</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Other">Other</option>
+            </select>
+
+            <select id="r_age">
+                <option value="" disabled selected>Select Age</option>
+                <script>
+                for (let i = 18; i <= 60; i++) {
+                    document.write(`<option value="${i}">${i}</option>`);
+                }
+                </script>
+            </select>
 
             <button class="register-btn" onclick="registerUser()">Register</button>
 
@@ -251,32 +279,20 @@
 
 <script>
 
-function openRegister() {
-    document.getElementById("registerPopup").style.display = "flex";
+// OPEN POPUPS
+function openLogin() { document.getElementById("loginPopup").style.display = "flex"; }
+function closeLogin() { document.getElementById("loginPopup").style.display = "none"; }
+
+function openRegister() { document.getElementById("registerPopup").style.display = "flex"; }
+function closeRegister() { document.getElementById("registerPopup").style.display = "none"; }
+
+// GUEST
+function openGuest() {
+    window.location.href = "/guest.html";
 }
 
-function closeRegister() {
-    document.getElementById("registerPopup").style.display = "none";
-}
-
-function registerUser() {
-    const username = document.getElementById("r_username").value.trim();
-    const email = document.getElementById("r_email").value.trim();
-    const password = document.getElementById("r_password").value.trim();
-
-    if (!username) return alert("Enter username");
-    if (!email) return alert("Enter email");
-    if (!password) return alert("Enter password");
-
-    const userData = { username, email, password };
-    localStorage.setItem("registered_user", JSON.stringify(userData));
-
-    alert("Registration Successful!");
-    closeRegister();
-}
-
-// LOGIN FUNCTION
-document.querySelector(".login-btn").addEventListener("click", () => {
+// LOGIN ACTION
+function loginUser() {
     const user = document.getElementById("login_user").value.trim();
     const pass = document.getElementById("login_pass").value.trim();
 
@@ -284,16 +300,13 @@ document.querySelector(".login-btn").addEventListener("click", () => {
     if (!pass) return alert("Enter password");
 
     localStorage.setItem("chat_username", user);
+    closeLogin();
 
     window.location.href = "/rooms.html";
-});
+}
 
-// GUEST LOGIN
-document.querySelector(".guest-btn").addEventListener("click", () => {
-    window.location.href = "/guest.html";
-});
-
-</script>
-
-</body>
-</html>
+// REGISTER ACTION
+function registerUser() {
+    const username = document.getElementById("r_username").value.trim();
+    const email = document.getElementById("r_email").value.trim();
+    const password = document.getElementById("r_password").value.trim(_
