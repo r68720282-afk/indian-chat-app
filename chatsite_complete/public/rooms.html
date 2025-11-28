@@ -141,6 +141,7 @@
     <div class="room-item" onclick="selectRoom('fun')">Fun Zone</div>
     <div class="room-item" onclick="selectRoom('love')">Love Room</div>
     <div class="room-item" onclick="selectRoom('gaming')">Gaming Hub</div>
+    <div class="room-item" style="background:#ff4d4d;" onclick="logoutUser()">Logout</div>
 </div>
 
 <!-- MAIN PANEL -->
@@ -225,7 +226,13 @@
         alert("Minimize button clicked (UI only).");
     }
 
-    function closePanel() {
+      function closePanel() {
+        window.location.href = "/";
+    }
+
+    /* ⭐ LOGOUT FUNCTION — NEW PART ⭐ */
+    function logoutUser() {
+        localStorage.removeItem("chat_username");
         window.location.href = "/";
     }
 
