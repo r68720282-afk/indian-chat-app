@@ -1,1 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Owner Panel — Modern Dashboard</title>
+  <!-- Link to CSS (create modern.css in same folder) -->
+  <link rel="stylesheet" href="modern.css" />
+</head>
+<body>
 
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar" aria-label="Owner navigation">
+    <h2 class="brand">Owner Panel</h2>
+
+    <nav>
+      <a class="active" data-open="dashboard">Dashboard</a>
+      <a data-open="users">All Users</a>
+      <a data-open="dm">DM Reader</a>
+      <a data-open="access">Access Control</a>
+      <a data-open="permissions">Permissions</a>
+      <a data-open="badwords">Bad Words</a>
+      <a data-open="alerts">Alerts</a>
+      <a data-open="reports">Reports</a>
+    </nav>
+
+    <button class="logout-btn" id="sidebarLogout" aria-label="Logout">Logout</button>
+  </aside>
+
+  <!-- Mobile menu button -->
+  <button class="menu-btn" id="menuBtn" aria-label="Open menu" onclick="toggleSidebar()">☰</button>
+
+  <!-- MAIN CONTENT -->
+  <main class="main" id="mainContent">
+    <!-- TOP HEADER -->
+    <div class="top-header" role="banner">
+      <h1 id="pageTitle">Dashboard</h1>
+      <div class="top-actions">
+        <button class="logout-top" id="topLogout" aria-label="Logout top">Logout</button>
+      </div>
+    </div>
+
+    <!-- DASHBOARD SECTION -->
+    <section id="dashboardPage" class="page-section">
+      <!-- Stats cards -->
+      <div class="grid-cards" role="region" aria-label="Dashboard statistics">
+        <div class="card">
+          <p class="label">Active Calls</p>
+          <p class="value" id="activeCalls">2</p>
+        </div>
+
+        <div class="card">
+          <p class="label">Pending Friend Requests</p>
+          <p class="value" id="pendingFR">14</p>
+        </div>
+
+        <div class="card">
+          <p class="label">Registered Users</p>
+          <p class="value" id="regUsers">230</p>
+        </div>
+
+        <div class="card">
+          <p class="label">Guest Users</p>
+          <p class="value" id="guestUsers">78</p>
+        </div>
+
+        <div class="card">
+          <p class="label">Bad Word Alerts</p>
+          <p class="value" id="badAlerts">5</p>
+        </div>
+
+        <div class="card">
+          <p class="label">Device Alerts</p>
+          <p class="value" id="deviceAlerts">3</p>
+        </div>
+      </div>
+
+      <!-- Activity Feed -->
+      <h2 class="section-title">Activity Feed</h2>
+      <div class="activity-box" id="activityBox" aria-live="polite">
+        <p class="activity-item">• Rohit joined the chat</p>
+        <p class="activity-item">• Bad word detected from Amit</p>
+        <p class="activity-item">• Simran started a video call</p>
+        <p class="activity-item">• Guest user joined Room A</p>
+      </div>
+    </section>
+
+    <!-- USERS PAGE -->
+    <section id="usersPage" class="page-section hidden" aria-hidden="true">
+      <h1>All Users</h1>
+
+      <div class="table-wrap" role="table" aria-label="Users table">
+        <table class="modern-table" role="grid" aria-describedby="users-desc">
+          <caption id="users-desc" class="visually-hidden">List of users with actions</caption>
+          <thead>
+            <tr>
+              <th scope="col">User</th>
+              <th scope="col">Email</th>
+              <th scope="col">Type</th>
+              <th scope="col">IP</th>
+              <th scope="col">Device</th>
+              <th scope="col">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="usersBody">
+            <!-- Example rows: replace with dynamic data later -->
+            <tr data-username="Rohit">
+              <td class="u-name">Rohit</td>
+              <td>rohit@gmail.com</td>
+              <td>Registered</td>
+              <td>103.45.122.12</td>
+              <td>Android</td>
+              <td>
+                <button class="m-btn" data-popup="dmPopup" data-user="Rohit" aria-label="Open DM for Rohit">DM</button>
+                <button class="m-btn" data-popup="accessPopup" data-user="Rohit" aria-label="Open access control for Rohit">Access</button>
+                <button class="m-btn" data-action="dm-list" data-user="Rohit" aria-label="Show DM list for Rohit">DM List</button>
+              </td>
+            </tr>
+
+            <tr data-username="Amit">
+              <td class="u-name">Amit</td>
+              <td>amit@gmail.com</td>
+              <td>Admin</td>
+              <td>182.66.78.21</td>
+              <td>Windows</td>
+              <td>
+                <button class="m-btn" data-popup="dmPopup" data-user="Amit" aria-label="Open DM for Amit">DM</button>
+                <button class="m-btn" data-popup="accessPopup" data-user="Amit" aria-label="Open access control for Amit">Access</button>
+                <button class="m-btn" data-action="dm-list" data-user="Amit" aria-label="Show DM list for Amit">DM List</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- DM List panel (user-wise contacts) -->
+      <div class="dm-list-panel hidden" id="dmListPanel" aria-hidden="true">
+        <h3 id="dmListTitle">DMs for —</h3>
+        <div id="dmListContainer">
+          <p class="muted">Select a contact to view conversation.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- DM PAGE (direct) -->
+    <section id="dmPage" class="page-section hidden" aria-hidden="true">
+      <h1>DM Reader</h1>
+
+      <div class="dm-container" role="region" aria-label="Direct messages area">
+        <div class="dm-users" id="dmUsersList" aria-label="DM users list">
+          <p class="muted">Select user from left or open via Users page.</p>
+        </div>
+
+        <div class="dm-chat" id="dmChatBox" aria-live="polite">
+          <div class="chat-head" id="chatHead">Chat</div>
+          <div class="chat-body" id="chatBody">
+            <p class="muted">No conversation selected.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Placeholder pages (kept hidden until needed) -->
+    <section id="accessPage" class="page-section hidden" aria-hidden="true">
+      <h1>Access Control</h1>
+      <p>Global access controls available via popup or settings.</p>
+    </section>
+
+    <section id="permissionsPage" class="page-section hidden" aria-hidden="true">
+      <h1>Permissions</h1>
+      <p>Global and default permission settings.</p>
+    </section>
+
+    <section id="badwordsPage" class="page-section hidden" aria-hidden="true">
+      <h1>Bad Words</h1>
+      <p>Bad words manager (use popup to add/remove).</p>
+    </section>
+
+    <section id="alertsPage" class="page-section hidden" aria-hidden="true">
+      <h1>Alerts</h1>
+      <p>Bad word alerts & device alerts list.</p>
+    </section>
+
+    <section id="reportsPage" class="page-section hidden" aria-hidden="true">
+      <h1>Reports</h1>
+      <p>Reported messages panel.</p>
+    </section>
+  </main>
+
+  <!-- OVERLAY for popups -->
+  <div id="overlay" class="overlay hidden" aria-hidden="true"></div>
+
+  <!-- ACCESS POPUP (small) -->
+  <div class="popup small hidden" id="accessPopup" role="dialog" aria-modal="true" aria-hidden="true">
+    <header>
+      <h3>Access Control</h3>
+      <button class="close" data-close="accessPopup" aria-label="Close access popup">&times;</button>
+    </header>
+
+    <div class="popup-body">
+      <p><strong>User:</strong> <span id="accessUser">—</span></p>
+
+      <label><input type="checkbox" id="chkDm"> DM Send</label><br>
+      <label><input type="checkbox" id="chkMedia"> Media Send</label><br>
+      <label><input type="checkbox" id="chkCall"> Audio/Video Call</label><br>
+      <label><input type="checkbox" id="chkFriend"> Friend Request</label><br>
+
+      <button class="m-btn primary" id="saveAccessBtn">Save</button>
+    </div>
+  </div>
+
+  <!-- DM POPUP (read-only, medium) -->
+  <div class="popup medium hidden" id="dmPopup" role="dialog" aria-modal="true" aria-hidden="true">
+    <header>
+      <h3>DM Reader</h3>
+      <button class="close" data-close="dmPopup" aria-label="Close DM popup">&times;</button>
+    </header>
+
+    <div class="popup-body">
+      <p><strong>Chat with:</strong> <span id="popupDmUser">—</span></p>
+      <div class="chat-body" id="popupChatMessages">
+        <p class="muted">No messages loaded.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Link to JS (create modern.js in same folder) -->
+  <script src="modern.js"></script>
+</body>
+  </html>
