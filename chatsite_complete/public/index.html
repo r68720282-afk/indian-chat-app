@@ -311,3 +311,25 @@ function registerUser() {
     const email = document.getElementById("r_email").value.trim();
     const password = document.getElementById("r_password").value.trim();
 
+// REGISTER ACTION
+function registerUser() {
+    const username = document.getElementById("r_username").value.trim();
+    const email = document.getElementById("r_email").value.trim();
+    const password = document.getElementById("r_password").value.trim();
+    const gender = document.getElementById("r_gender").value;
+    const age = document.getElementById("r_age").value;
+
+    if (!username) return alert("Enter username");
+    if (!email) return alert("Enter email");
+    if (!password) return alert("Enter password");
+    if (!gender) return alert("Select gender");
+    if (!age) return alert("Select age");
+
+    const userData = { username, email, gender, age };
+    localStorage.setItem("chat_user", JSON.stringify(userData));
+
+    closeRegister();
+    alert("Registration successful!");
+
+    window.location.href = "/rooms.html";
+}
